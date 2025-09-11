@@ -8,7 +8,6 @@ import re
 # from reportlab.lib.pagesizes import letter
 from io import BytesIO
 
-
 app = Flask(__name__)
 app.secret_key = 'app123'
 app.secret_key = os.urandom(24)
@@ -2103,5 +2102,6 @@ def convert_to_12h(time_str):
 
 
 if __name__ == '__main__':
-    init_db()
+    #init_db()
     app.run(debug=True)
+    #app.run(host="0.0.0.0", port=5000)
