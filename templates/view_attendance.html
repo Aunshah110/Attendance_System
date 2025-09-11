@@ -1,0 +1,712 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+    #ajaxLoading {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.25);
+  }
+
+  .dot-spinner {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    animation: spin 1.2s linear infinite;
+  }
+
+  .dot-spinner div {
+    width: 14px;
+    height: 14px;
+    background: var(--brown-mid);
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .dot-spinner div:nth-child(1) { transform: translate(-50%, -50%) translateX(24px); }
+  .dot-spinner div:nth-child(2) { transform: translate(-50%, -50%) translateY(24px); }
+  .dot-spinner div:nth-child(3) { transform: translate(-50%, -50%) translateX(-24px); }
+  .dot-spinner div:nth-child(4) { transform: translate(-50%, -50%) translateY(-24px); }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  :root{
+    --black: #070707;
+    --brown-dark: #3e2a1f;
+    --brown-mid: #7a5230;
+    --brown-light: #d2a679;
+    --cream: #f5f5dc;
+    --yellow: #FFD24A;
+    --glass: rgba(255,255,255,0.06);
+    --card-bg: rgba(18,14,12,0.72);
+    --accent: linear-gradient(90deg, #b07a49, #8b5a2b);
+    --transition: all 0.28s cubic-bezier(.2,.9,.3,1);
+  }
+
+  body{
+    background: linear-gradient(135deg, var(--brown-light) 0%, var(--cream) 100%);
+    min-height:100vh;
+    margin:0;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--cream);
+  }
+  body::before{
+    content:"";
+    position:fixed;
+    width:300%;
+    height:300%;
+    top:-100%;
+    left:-100%;
+    background: radial-gradient(circle, rgba(255,255,255,0.08) 10%, transparent 10.5%);
+    background-size: 30px 30px;
+    animation: float 20s infinite linear;
+    z-index:-1;
+  }
+  @keyframes float {
+    0% { transform: translate(0,0) rotate(0deg); }
+    100% { transform: translate(-30px,-30px) rotate(360deg); }
+  }
+
+  .navbar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    background: rgba(112, 62, 35, 0.9);
+    border-bottom: 2px solid var(--gold);
+  }
+
+  .page-wrapper{
+    padding: calc(120px + 1.5rem) 1rem 3rem;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    min-height: calc(100vh - 80px);
+    box-sizing:border-box;
+  }
+
+  .page-card{
+    width: min(960px, 96%);
+    border-radius: 16px;
+    padding: 28px;
+    background: rgba(112, 62, 35, 0.9);
+    border-bottom: 2px solid var(--gold);
+    border: 1px solid rgba(255,255,255,0.06);
+    backdrop-filter: blur(10px);
+    margin-bottom: 2rem;
+  }
+
+  .page-card h1, .page-card h2, .page-card h5{
+    color: #FFFBEA;
+    margin-bottom: 1rem;
+  }
+
+  /* Stylish selects & inputs */
+   .form-label { font-weight:600; color: var(--cream); }
+
+  .form-select {
+    border-radius: 10px;
+    padding: 8px 12px;
+    border: 2px solid var(--brown-mid);
+    background: var(--cream);
+    color: var(--black);
+    transition: var(--transition);
+    width:100%;
+  }
+  .form-select:focus {
+    outline:none;
+    border-color: var(--yellow);
+    box-shadow: 0 0 0 4px rgba(246, 245, 244, 0.25);
+  }
+
+  /* Reuse dashboard button */
+  .btn-dashboard{ display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  width:100%;
+  max-width:420px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  text-decoration:none;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:0.7px;
+  font-size: clamp(0.95rem, 1.8vw, 1.05rem);
+  color: var(--black);
+  background: linear-gradient(180deg, var(--yellow), #f6c95a);
+  border: 2px solid rgba(0,0,0,0.08);
+  box-shadow:
+    0 6px 18px rgba(122,82,48,0.12),
+    0 2px 6px rgba(0,0,0,0.35),
+    inset 0 -6px 24px rgba(0,0,0,0.06);
+  transition: var(--transition);
+  position:relative;
+  overflow:hidden; }
+  .btn-dashboard::after{   content:"";
+  position:absolute;
+  top:0;
+  left:-100%;
+  width:100%;
+  height:100%;
+  background: linear-gradient(
+    120deg,
+    transparent,
+    rgba(255,255,255,0.3),
+    transparent
+  );
+  transition:0.5s;
+  z-index:1;}
+  .btn-dashboard::before{  content:"";
+  position:absolute;
+  left:0;
+  top:0;
+  bottom:0;
+  width:8px;
+  background: linear-gradient(180deg, var(--brown-mid), var(--brown-dark));
+  border-top-left-radius:12px;
+  border-bottom-left-radius:12px;
+  transform:translateX(-6px);
+  transition: var(--transition);
+  opacity:0.95;
+  z-index:2; }
+
+
+  /* Table styling */
+  .table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:1rem;
+    overflow:hidden;
+    border-radius:12px;
+  }
+  .table thead{
+    background: linear-gradient(90deg, var(--brown-dark), var(--brown-mid));
+    color:#fffbe9;
+  }
+  .table th, .table td{
+    padding:12px 16px;
+    text-align:left;
+  }
+  .table tbody tr:nth-child(even){
+    background: rgba(255,255,255,0.04);
+  }
+  .table tbody tr:hover{
+    background: rgba(255,210,74,0.08);
+    transition: var(--transition);
+  }
+
+  .badge-success{
+    background: linear-gradient(90deg, #4caf50, #2e7d32);
+    padding:6px 12px;
+    border-radius:8px;
+    color:white;
+    font-weight:600;
+  }
+  .badge-danger{
+    background: linear-gradient(90deg, #f44336, #b71c1c);
+    padding:6px 12px;
+    border-radius:8px;
+    color:white;
+    font-weight:600;
+  }
+
+  .alert{
+    background: rgba(255,210,74,0.15);
+    border: 1px solid rgba(255,210,74,0.35);
+    border-radius:12px;
+    padding:14px 18px;
+    color:#fffbe9;
+    margin-top:1rem;
+  }
+
+
+    .student-details-card {
+    background: linear-gradient(135deg, #8B5A2B 0%, #A67B5B 100%);
+    border-radius: 16px;
+    padding: 25px;
+    box-shadow: 0 10px 30px rgba(139, 90, 43, 0.3);
+    color: #FFF;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 20px 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .student-details-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    background: linear-gradient(90deg, #F4A460, #D2691E, #CD853F);
+    border-radius: 8px 8px 0 0;
+  }
+  
+  .card-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 25px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 15px;
+  }
+  
+  .card-header i {
+    font-size: 28px;
+    margin-right: 15px;
+    color: #FFD700;
+  }
+  
+  .card-header h3 {
+    margin: 0;
+    font-weight: 700;
+    font-size: 24px;
+    letter-spacing: 0.5px;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+  }
+  
+  .student-info {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  
+  .info-item {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 15px;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  
+  .info-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  }
+  
+  .info-icon {
+    width: 45px;
+    height: 45px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+  }
+  
+  .info-item:hover .info-icon {
+    background: rgba(255, 215, 0, 0.2);
+    transform: scale(1.1);
+  }
+  
+  .info-icon i {
+    font-size: 18px;
+    color: #FFD700;
+  }
+  
+  .info-content {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .info-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 4px;
+  }
+  
+  .info-value {
+    font-size: 18px;
+    font-weight: 600;
+    color: #FFFFFF;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+  }
+  
+  /* Animation for card entrance */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .student-details-card {
+    animation: fadeInUp 0.6s ease-out;
+  }
+  
+  /* Responsive design */
+  @media (max-width: 768px) {
+    .student-details-card {
+      padding: 20px;
+    }
+    
+    .card-header h3 {
+      font-size: 20px;
+    }
+    
+    .info-value {
+      font-size: 16px;
+    }
+    
+    .info-icon {
+      width: 40px;
+      height: 40px;
+    }
+    
+    .info-icon i {
+      font-size: 16px;
+    }
+  }
+
+   .search-filters {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .search-filters input {
+    flex: 1;
+    min-width: 180px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 2px solid var(--brown-mid);
+    background: var(--cream);
+    color: var(--black);
+    transition: var(--transition);
+    font-size: 0.95rem;
+  }
+  .search-filters input:focus {
+    outline: none;
+    border-color: var(--yellow);
+    box-shadow: 0 0 0 4px rgba(246, 245, 244, 0.25);
+  }
+  .no-record {
+    text-align: center;
+    padding: 1rem;
+    color: #fffbe9;
+    font-weight: 600;
+    background: rgba(255, 210, 74, 0.15);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 210, 74, 0.35);
+  }
+</style>
+<div id="ajaxLoading" aria-hidden="true">
+  <div class="dot-spinner">
+    <div></div><div></div><div></div><div></div>
+  </div>
+</div>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<div class="page-wrapper">
+  <div class="page-card">
+    <h1>View Attendance</h1>
+
+    <div class="student-details-card" id="studentProfile">
+      <div class="card-header">
+        <i class="fas fa-user-graduate"></i>
+        <h3>Student Profile</h3>
+      </div>
+      <div class="student-info">
+        <div class="info-item">
+          <div class="info-icon"><i class="fas fa-signature"></i></div>
+          <div class="info-content">
+            <span class="info-label">Name</span>
+            <span class="info-value">{{ student[1] }}</span>
+          </div>
+        </div>
+        <div class="info-item">
+          <div class="info-icon"><i class="fas fa-id-card"></i></div>
+          <div class="info-content">
+            <span class="info-label">Student ID</span>
+            <span class="info-value">{{ student[0] }}</span>
+          </div>
+        </div>
+        <div class="info-item">
+          <div class="info-icon"><i class="fas fa-users"></i></div>
+          <div class="info-content">
+            <span class="info-label">Batch</span>
+            <span class="info-value">{{ student[2] }}</span>
+          </div>
+        </div>
+        <div class="info-item">
+          <div class="info-icon"><i class="fas fa-building"></i></div>
+          <div class="info-content">
+            <span class="info-label">Department</span>
+            <span class="info-value">{{ student[3] }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ATTENDANCE FORM -->
+    <div class="page-card">
+      <form id="attendanceForm" method="POST">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="semester_id" class="form-label">Select Semester</label>
+            <!-- removed inline onchange to avoid full-page submit -->
+            <select class="form-select" id="semester_id" name="semester_id" required>
+              <option value="">-- Select Semester --</option>
+              {% for semester in semesters %}
+                <option value="{{ semester[0] }}" {% if selected_semester == semester[0]|string %}selected{% endif %}>
+                  {{ semester[1] }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Wrap course area in courseContainer so JS can safely replace it -->
+          <div id="courseContainer" class="col-md-6">
+            <label for="course_id" class="form-label">Select Course</label>
+            {% if selected_semester %}
+              {% if courses %}
+                <select class="form-select" id="course_id" name="course_id" required>
+                  <option value="">-- Select Course --</option>
+                  {% for course in courses %}
+                    <option value="{{ course[0] }}" {% if selected_course == course[0]|string %}selected{% endif %}>
+                      {{ course[1] }}
+                    </option>
+                  {% endfor %}
+                </select>
+              {% else %}
+                <input type="text" class="form-control" disabled value="No Course Available">
+              {% endif %}
+            {% else %}
+              <select class="form-select" id="course_id" name="course_id" disabled>
+                <option value="">-- Select Course --</option>
+              </select>
+            {% endif %}
+          </div>
+        </div>
+
+          <div class="mt-4">
+            <button type="submit" class="btn-dashboard"><span>Show Attendance</span></button>
+          </div>
+   
+      </form>
+    </div>
+
+    <!-- Attendance area: server renders here on full page loads; JS will replace this block on ajax submits -->
+    <div id="attendanceArea">
+  {% if attendance_data %}
+    <div class="page-card">
+      <h2>Attendance for {{ attendance_data[0][2] if attendance_data else '' }}</h2>
+
+      <!-- Search filters -->
+      <div class="search-filters">
+        <input type="date" id="searchDate" placeholder="Search by Date...">
+        <input type="time" id="searchStart" placeholder="Search by Start Time...">
+        <input type="time" id="searchEnd" placeholder="Search by End Time...">
+      </div>
+
+      <div class="table-responsive">
+        <table class="table" id="attendanceTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Starting Time</th>
+              <th>Ending Time</th>
+              <th>Status</th>
+              <th>Class Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in attendance_data %}
+              <tr>
+                <td>{{ entry[0] }}</td>
+                <td>{{ entry[4] }}</td>
+                <td>{{ entry[5] }}</td>
+                <td>
+                  <span class="badge-{% if entry[1] == 'present' %}success{% else %}danger{% endif %}">
+                    {{ entry[1]|capitalize }}
+                  </span>
+                </td>
+                <td>{{ entry[3] }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div id="noRecordMessage" class="no-record" style="display:none;">
+          No matching records found.
+        </div>
+      </div>
+    </div>
+  {% elif request.method == 'POST' and selected_course %}
+    <div class="page-card">
+      <div class="alert">No attendance records found for the selected course.</div>
+    </div>
+  {% endif %}
+</div>
+
+  </div> <!-- .page-card / outer -->
+</div> <!-- .page-wrapper -->
+
+
+<script>
+  (function () {
+    // guard: if the DOM doesn't have the form, bail
+    const form = document.getElementById('attendanceForm');
+    if (!form) return;
+
+    const semesterEl = document.getElementById('semester_id');
+    const courseContainer = document.getElementById('courseContainer');
+    const attendanceArea = document.getElementById('attendanceArea');
+    const loadingOverlay = document.getElementById('ajaxLoading');
+
+    // helper: show/hide loading overlay
+    function showLoading() { if (loadingOverlay) loadingOverlay.style.display = 'flex'; }
+    function hideLoading() { if (loadingOverlay) loadingOverlay.style.display = 'none'; }
+
+    // POST the current form to the same URL, parse returned HTML, and extract the element content
+    // selector should be a CSS selector for the block you'd like to pull from the returned HTML
+    async function postFormAndExtract(selector) {
+      try {
+        showLoading();
+
+        // Build FormData from the form (includes any hidden CSRF token inputs if present)
+        const fd = new FormData(form);
+
+        // optional: add a flag so server-side logging can optionally detect AJAX vs normal (server can ignore)
+        fd.set('ajax', '1');
+
+        const resp = await fetch(form.action || window.location.href, {
+          method: (form.method || 'POST').toUpperCase(),
+          body: fd,
+          credentials: 'same-origin',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest' // helpful on server-side if you want to detect AJAX
+          }
+        });
+
+        // If server redirected (PRG), fetch will follow and return final document HTML
+        const text = await resp.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+
+        const el = doc.querySelector(selector);
+        hideLoading();
+        return el ? el.innerHTML : null;
+      } catch (err) {
+        console.error('AJAX form post failed:', err);
+        hideLoading();
+        return null;
+      }
+    }
+
+    // When semester changes -> send form to server and replace the course block only
+    semesterEl.addEventListener('change', async function () {
+      // if semester empty, restore default disabled course select
+      if (!this.value) {
+        courseContainer.innerHTML = `
+          <label for="course_id" class="form-label">Select Course</label>
+          <select class="form-select" id="course_id" name="course_id" disabled>
+            <option value="">-- Select Course --</option>
+          </select>`;
+        return;
+      }
+
+      const html = await postFormAndExtract('#courseContainer');
+      if (html !== null) {
+        courseContainer.innerHTML = html;
+      } else {
+        // if fetch failed, keep a safe disabled state so user can still submit (fallback server-side)
+        courseContainer.innerHTML = `
+          <label for="course_id" class="form-label">Select Course</label>
+          <input type="text" class="form-control" disabled value="Unable to load courses. Please try again.">`;
+      }
+    });
+
+    // Intercept form submit -> fetch an updated attendanceArea and replace it
+    form.addEventListener('submit', async function (e) {
+      // Allow default behavior if user holds ctrl/meta to open in new tab? Most workflows expect AJAX so always intercept.
+      e.preventDefault();
+
+      const html = await postFormAndExtract('#attendanceArea');
+      if (html !== null) {
+        attendanceArea.innerHTML = html;
+        // smooth scroll to attendance area, optional
+        attendanceArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        // On fatal error show a simple alert; server-side fallback still works if JS disabled
+        alert('Unable to fetch attendance. Please refresh the page and try again.');
+      }
+    });
+        // Filtering Logic
+    document.addEventListener('input', function (e) {
+      if (
+        e.target.id === 'searchDate' ||
+        e.target.id === 'searchStart' ||
+        e.target.id === 'searchEnd'
+      ) {
+        filterTable();
+      }
+    });
+
+    function filterTable() {
+      const dateFilter = document.getElementById('searchDate').value.toLowerCase();
+      const startFilter = document.getElementById('searchStart').value.toLowerCase();
+      const endFilter = document.getElementById('searchEnd').value.toLowerCase();
+
+      const table = document.getElementById('attendanceTable');
+      if (!table) return;
+
+      const rows = table.querySelectorAll('tbody tr');
+      let visibleCount = 0;
+
+      rows.forEach(row => {
+        const date = row.cells[0].textContent.toLowerCase();
+        const start = row.cells[1].textContent.toLowerCase();
+        const end = row.cells[2].textContent.toLowerCase();
+
+        const match =
+          (!dateFilter || date.includes(dateFilter)) &&
+          (!startFilter || start.includes(startFilter)) &&
+          (!endFilter || end.includes(endFilter));
+
+        if (match) {
+          row.style.display = '';
+          visibleCount++;
+        } else {
+          row.style.display = 'none';
+        }
+      });
+
+      // Show/hide no-record message
+      const noRecordMsg = document.getElementById('noRecordMessage');
+      if (noRecordMsg) {
+        noRecordMsg.style.display = visibleCount === 0 ? 'block' : 'none';
+      }
+    }
+  })();
+</script>
+
+
+{% endblock %}

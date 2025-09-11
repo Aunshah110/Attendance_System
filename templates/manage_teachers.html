@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  :root{
+    --black: #070707;
+    --brown-dark: #3e2a1f;
+    --brown-mid: #7a5230;
+    --brown-light: #d2a679;
+    --cream: #f5f5dc;
+    --yellow: #FFD24A;
+    --glass: rgba(255,255,255,0.06);
+    --card-bg: rgba(18,14,12,0.72);
+    --accent: linear-gradient(90deg, #b07a49, #8b5a2b);
+    --transition: all 0.28s cubic-bezier(.2,.9,.3,1);
+  }
+
+  /* Background with animated dots */
+  body{
+    background: linear-gradient(135deg, var(--brown-light) 0%, var(--cream) 100%);
+    min-height:100vh;
+    margin:0;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--cream);
+  }
+  body::before{
+    content:"";
+    position:fixed;
+    width:300%;
+    height:300%;
+    top:-100%;
+    left:-100%;
+    background: radial-gradient(circle, rgba(255,255,255,0.08) 10%, transparent 10.5%);
+    background-size: 30px 30px;
+    animation: float 20s infinite linear;
+    z-index:-1;
+  }
+  @keyframes float {
+    0% { transform: translate(0,0) rotate(0deg); }
+    100% { transform: translate(-30px,-30px) rotate(360deg); }
+  }
+
+  /* Navbar always pinned */
+  .navbar {
+    position: fixed !important;
+    top: 0; left: 0; right: 0;
+    z-index: 9999;
+    background: rgba(112, 62, 35, 0.9);
+    border-bottom: 2px solid var(--yellow);
+  }
+
+  /* Wrapper */
+  .admin-wrapper {
+    padding: calc(150px + 1.5rem) 1.25rem 4rem;
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    min-height: calc(100vh - 80px);
+    box-sizing:border-box;
+  }
+
+  /* Card */
+  .dashboard-card{
+    width: min(980px, 98%);
+    background: rgba(112, 62, 35, 0.9);
+    border-bottom: 2px solid var(--yellow);
+    border-radius: 16px;
+    padding: clamp(15px, 3.6vw, 34px);
+    box-shadow: 0 20px 40px rgba(15,10,8,0.35), inset 0 1px 0 rgba(255,255,255,0.03);
+    position:relative;
+    overflow:hidden;
+    backdrop-filter: blur(8px);
+  }
+  .dashboard-card::before{
+    content:"";
+    position:absolute;
+    left:0; right:0; top:0;
+    height:6px;
+    background: linear-gradient(90deg, rgba(255,210,120,0.95), rgba(139,115,85,0.95));
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    box-shadow: 0 6px 20px rgba(255,210,120,0.06);
+  }
+
+  .dashboard-inner{
+    display:flex;
+    flex-direction:column;
+    gap: clamp(14px, 2.4vw, 20px);
+    align-items:center;
+    width:100%;
+  }
+
+    h1{
+    margin:0;
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    font-weight:800;
+    color: var(--yellow);
+    text-align:center;
+    padding-top:8px;
+  }
+
+  /* Buttons */
+  .btn-dashboard{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    text-decoration:none;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.7px;
+    font-size: 0.9rem;
+    color: var(--black);
+    background: linear-gradient(180deg, var(--yellow), #f6c95a);
+    border: 2px solid rgba(0,0,0,0.08);
+    box-shadow: 0 6px 18px rgba(122,82,48,0.12),
+                0 2px 6px rgba(0,0,0,0.35),
+                inset 0 -6px 24px rgba(0,0,0,0.06);
+    transition: var(--transition);
+    position:relative;
+    overflow:hidden;
+  }
+  .btn-dashboard::after{
+    content:""; position:absolute; top:0; left:-100%; width:100%; height:100%;
+    background: linear-gradient(120deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition:0.5s; z-index:1;
+  }
+  .btn-dashboard::before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:6px;
+    background: linear-gradient(180deg, var(--brown-mid), var(--brown-dark));
+    border-top-left-radius:10px; border-bottom-left-radius:10px;
+    transform:translateX(-6px);
+    transition: var(--transition);
+    opacity:0.95; z-index:2;
+  }
+  .btn-dashboard span{ position:relative; z-index:3; }
+  .btn-dashboard:hover{
+    transform: translateY(-5px) scale(1.03);
+    letter-spacing: 1.3px;
+    box-shadow: 0 14px 30px rgba(255,210,74,0.25),
+                0 6px 14px rgba(0,0,0,0.55),
+                inset 0 -6px 20px rgba(0,0,0,0.08);
+  }
+  .btn-dashboard:hover::before{ transform:translateX(0); width:10px; }
+  .btn-dashboard:hover::after{ left:100%; }
+  .btn-dashboard:active{
+    transform: translateY(-2px) scale(0.98);
+  }
+
+  /* Table */
+  table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:1.5rem;
+    font-size:0.95rem;
+    background: rgba(255,255,255,0.04);
+    border-radius:12px;
+    overflow:hidden;
+  }
+  thead{
+    background: var(--brown-dark);
+    color: var(--cream);
+  }
+  th,td{
+    padding:12px;
+    text-align:left;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+    color: var(--black);
+    background: rgba(255,255,255,0.85);
+  }
+  tr:hover td{ background: rgba(255,210,74,0.25); }
+
+  /* Responsive */
+  @media (max-width:720px){
+    table, thead, tbody, th, td, tr{ display:block; }
+    thead{ display:none; }
+    tr{ margin-bottom:14px; border-radius:10px; overflow:hidden; }
+    td{ padding:10px; display:flex; justify-content:space-between; }
+    td::before{
+      content: attr(data-label);
+      font-weight:bold;
+      color: var(--brown-dark);
+    }
+  }
+</style>
+
+<div class="admin-wrapper">
+  <div class="dashboard-card" role="region" aria-label="Admin dashboard">
+    <div class="dashboard-inner">
+
+      <h1 class="text-center">Manage Teachers</h1>
+
+      <!-- Search Box -->
+      <div class="search-container" style="margin-bottom: 2rem;">
+        <div class="search-box">
+          <input type="text" id="teacherSearch" class="search-input" placeholder="Search by ID or Name..." 
+                 style="width: 100%; padding: 12px 16px; border-radius: 10px; border: 2px solid var(--brown-mid);
+                        background: var(--cream); color: var(--black); font-size: 1rem;
+                        box-shadow: 0 4px 12px rgba(122,82,48,0.1);">
+          <i class="bi bi-search search-icon" style="position: absolute; right: 15px; top: 50%; 
+                transform: translateY(-50%); color: var(--brown-mid);"></i>
+        </div>
+      </div>
+
+      <div id="noResultsMessage" class="no-results" style="display: none; text-align: center; padding: 2rem;
+           background: rgba(255,255,255,0.1); border-radius: 10px; margin: 1rem 0; color: var(--cream);">
+        <i class="bi bi-exclamation-circle" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
+        <p style="font-size: 1.1rem; margin: 0;">No teachers found matching your search.</p>
+      </div>
+
+      <table id="teachersTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for teacher in teachers %}
+            <tr class="teacher-row" data-id="{{ teacher[0] }}" data-name="{{ teacher[1]|lower }}">
+              <td data-label="ID">{{ teacher[0] }}</td>
+              <td data-label="Name">{{ teacher[1] }}</td>
+              <td data-label="Email">{{ teacher[2] }}</td>
+              <td data-label="Action">
+                <a href="{{ url_for('edit_teacher', teacher_id=teacher[0]) }}" class="btn-dashboard btn-sm"><span>Edit</span></a>
+                <form method="POST" style="display:inline;">
+                  <input type="hidden" name="teacher_id" value="{{ teacher[0] }}">
+                  <button type="submit" name="delete_teacher" class="btn-dashboard btn-sm"><span>Delete</span></button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+    </div>
+  </div>
+</div>
+
+<style>
+  .search-container {
+    position: relative;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  .search-box {
+    position: relative;
+  }
+
+  .search-input:focus {
+    outline: none;
+    border-color: var(--yellow) !important;
+    box-shadow: 0 0 0 3px rgba(255, 210, 74, 0.25) !important;
+  }
+
+  .search-input::placeholder {
+    color: rgba(139, 115, 85, 0.6);
+  }
+
+  .teacher-row {
+    transition: all 0.3s ease;
+  }
+
+  .teacher-row.hidden {
+    display: none;
+  }
+
+  .teacher-row.highlight {
+    background: linear-gradient(90deg, rgba(255,210,74,0.2), transparent) !important;
+    border-left: 4px solid var(--yellow) !important;
+  }
+
+  .no-results {
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('teacherSearch');
+    const teacherRows = document.querySelectorAll('.teacher-row');
+    const noResultsMessage = document.getElementById('noResultsMessage');
+    const teachersTable = document.getElementById('teachersTable');
+
+    searchInput.addEventListener('input', function() {
+      const searchTerm = this.value.toLowerCase().trim();
+      let foundMatches = false;
+
+      teacherRows.forEach(row => {
+        const teacherId = row.getAttribute('data-id').toLowerCase();
+        const teacherName = row.getAttribute('data-name');
+        
+        if (searchTerm === '') {
+          row.classList.remove('hidden', 'highlight');
+          foundMatches = true;
+        } else if (teacherId.includes(searchTerm) || teacherName.includes(searchTerm)) {
+          row.classList.remove('hidden');
+          row.classList.add('highlight');
+          foundMatches = true;
+          
+          // Move matching rows to top
+          row.parentNode.insertBefore(row, row.parentNode.firstChild);
+        } else {
+          row.classList.add('hidden');
+          row.classList.remove('highlight');
+        }
+      });
+
+      // Show/hide no results message
+      if (!foundMatches && searchTerm !== '') {
+        noResultsMessage.style.display = 'block';
+        teachersTable.style.display = 'none';
+      } else {
+        noResultsMessage.style.display = 'none';
+        teachersTable.style.display = 'table';
+      }
+    });
+
+    // Clear search when clicking escape
+    searchInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        this.value = '';
+        this.dispatchEvent(new Event('input'));
+      }
+    });
+  });
+</script>
+
+{% endblock %}

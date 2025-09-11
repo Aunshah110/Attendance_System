@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  :root{
+    --black: #070707;
+    --brown-dark: #3e2a1f;
+    --brown-mid: #7a5230;
+    --brown-light: #d2a679;
+    --cream: #f5f5dc;
+    --yellow: #FFD24A;
+    --glass: rgba(255,255,255,0.06);
+    --card-bg: rgba(18,14,12,0.72);
+    --accent: linear-gradient(90deg, #b07a49, #8b5a2b);
+    --transition: all 0.28s cubic-bezier(.2,.9,.3,1);
+  }
+
+  /* -- Recreate login page background with dynamic dots -- */
+  body{
+    background: linear-gradient(135deg, var(--brown-light) 0%, var(--cream) 100%);
+    min-height:100vh;
+    margin:0;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--cream);
+  }
+  body::before{
+    content:"";
+    position:fixed;
+    width:300%;
+    height:300%;
+    top:-100%;
+    left:-100%;
+    background: radial-gradient(circle, rgba(90, 70, 59, 0.15) 10%, transparent 10.5%);
+    background-size: 30px 30px;
+    animation: float 20s infinite linear;
+    z-index:-1;
+  }
+  @keyframes float {
+    0% { transform: translate(0,0) rotate(0deg); }
+    100% { transform: translate(-30px,-30px) rotate(360deg); }
+  }
+
+  /* Ensure navbar from base stays on top */
+  .navbar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    background: rgba(112, 62, 35, 0.9);
+    border-bottom: 2px solid var(--yellow);
+  }
+
+  /* Main wrapper */
+  .teacher-wrapper {
+    padding: calc(150px + 1.5rem) 1.25rem 4rem;
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    min-height: calc(100vh - 80px);
+    box-sizing:border-box;
+  }
+
+  /* Card */
+  .dashboard-card{
+    width: min(540px, 96%);
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+    border-radius: 16px;
+    padding: clamp(15px, 3.6vw, 34px);
+    box-shadow: 0 20px 40px rgba(15,10,8,0.35), inset 0 1px 0 rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    position:relative;
+    overflow:hidden;
+    backdrop-filter: blur(8px);
+  }
+  .dashboard-card::before{
+    content:"";
+    position:absolute;
+    left:0;
+    right:0;
+    top:0;
+    height:6px;
+    background: linear-gradient(90deg, rgba(255,210,120,0.95), rgba(139,115,85,0.95));
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    box-shadow: 0 6px 20px rgba(255,210,120,0.06);
+  }
+
+  .dashboard-inner{
+    display:flex;
+    flex-direction:column;
+    gap: clamp(14px, 2.4vw, 20px);
+    align-items:center;
+    justify-content:center;
+  }
+
+  /* Welcome heading */
+  .welcome-message{
+    margin:0;
+    padding-top:6px;
+    font-weight:800;
+    color: #060606;
+    text-align:center;
+    line-height:1.08;
+    letter-spacing:-0.2px;
+    font-size: clamp(1.15rem, 2.6vw, 1.65rem);
+    max-width: 100%;
+    word-break: break-word;
+    opacity:0;
+    transform: translateY(8px);
+    transition: var(--transition);
+    text-shadow: 0 6px 18px rgba(0,0,0,0.5);
+  }
+
+  /* Buttons stack */
+  .dashboard-links{
+    display:flex;
+    flex-direction:column;
+    width:100%;
+    gap: clamp(12px, 1.6vw, 16px);
+    align-items:center;
+    margin-top:6px;
+  }
+
+  /* Buttons */
+  .btn-dashboard{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    width:100%;
+    max-width:420px;
+    padding: 12px 18px;
+    border-radius: 12px;
+    text-decoration:none;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:0.7px;
+    font-size: clamp(0.95rem, 1.8vw, 1.05rem);
+    color: var(--black);
+    background: linear-gradient(180deg, var(--yellow), #f6c95a);
+    border: 2px solid rgba(0,0,0,0.08);
+    box-shadow:
+      0 6px 18px rgba(122,82,48,0.12),
+      0 2px 6px rgba(0,0,0,0.35),
+      inset 0 -6px 24px rgba(0,0,0,0.06);
+    transition: var(--transition);
+    position:relative;
+    overflow:hidden;
+  }
+  .btn-dashboard::after{
+    content:"";
+    position:absolute;
+    top:0;
+    left:-100%;
+    width:100%;
+    height:100%;
+    background: linear-gradient(
+      120deg,
+      transparent,
+      rgba(255,255,255,0.3),
+      transparent
+    );
+    transition:0.5s;
+    z-index:1;
+  }
+  .btn-dashboard::before{
+    content:"";
+    position:absolute;
+    left:0;
+    top:0;
+    bottom:0;
+    width:8px;
+    background: linear-gradient(180deg, var(--brown-mid), var(--brown-dark));
+    border-top-left-radius:12px;
+    border-bottom-left-radius:12px;
+    transform:translateX(-6px);
+    transition: var(--transition);
+    opacity:0.95;
+    z-index:2;
+  }
+  .btn-dashboard span { position:relative; z-index:3; }
+  .btn-dashboard:hover{
+    transform: translateY(-6px) scale(1.03);
+    letter-spacing: 1.5px;
+    box-shadow:
+      0 18px 40px rgba(255,210,74,0.25),
+      0 8px 18px rgba(0,0,0,0.55),
+      inset 0 -8px 28px rgba(0,0,0,0.08);
+  }
+  .btn-dashboard:hover::before{ transform:translateX(0); width:12px; }
+  .btn-dashboard:hover::after{ left:100%; }
+  .btn-dashboard:active{
+    transform: translateY(-2px) scale(.995);
+    box-shadow: 0 8px 18px rgba(0,0,0,0.35);
+  }
+
+  @media (max-width:520px){
+    .dashboard-card{ padding:18px; border-radius:14px; }
+    .btn-dashboard{ font-size: 0.95rem; padding:10px 14px; }
+  }
+
+  .typed-complete{ opacity:1; transform: translateY(0); }
+</style>
+
+<div class="teacher-wrapper">
+  <div class="dashboard-card" role="region" aria-label="Teacher dashboard">
+    <div class="dashboard-inner">
+      <h2 id="welcome" class="welcome-message" data-full="Welcome, Mr {{ session['name'] }}!">
+        Welcome, Mr {{ session['name'] }}!
+      </h2>
+      <noscript>
+        <h2 class="welcome-fallback">Welcome, Mr {{ session['name'] }}!</h2>
+      </noscript>
+
+      <div class="dashboard-links" role="navigation" aria-label="Teacher links">
+        <a href="{{ url_for('mark_attendance') }}" class="btn-dashboard"><span>Mark Attendance</span></a>
+        <a href="{{ url_for('view_students') }}" class="btn-dashboard"><span>View Student Records</span></a>
+        <a href="{{ url_for('teacher_generate_reports') }}" class="btn-dashboard"><span>Generate Report</span></a>
+        <a href="{{ url_for('view_timetable') }}" class="btn-dashboard"><span>Timetable</span></a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Typing reveal animation
+  document.addEventListener('DOMContentLoaded', function () {
+    const el = document.getElementById('welcome');
+    if (!el) return;
+    const fullText = (el.dataset.full || el.textContent || '').trim();
+    el.textContent = '';
+
+    const typedSpan = document.createElement('span');
+    typedSpan.setAttribute('aria-hidden','true');
+    el.appendChild(typedSpan);
+
+    const base = 22;
+    const variance = 16;
+    let i = 0;
+
+    function typeNext() {
+      if (i <= fullText.length) {
+        typedSpan.textContent = fullText.slice(0, i);
+        i++;
+        const delay = base + Math.floor(Math.random() * variance);
+        setTimeout(typeNext, delay);
+      } else {
+        el.classList.add('typed-complete');
+        typedSpan.textContent = fullText;
+      }
+    }
+    setTimeout(typeNext, 180);
+  });
+</script>
+{% endblock %}

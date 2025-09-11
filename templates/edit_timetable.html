@@ -1,0 +1,352 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+  :root{
+    --black: #070707;
+    --brown-dark: #3e2a1f;
+    --brown-mid: #7a5230;
+    --brown-light: #d2a679;
+    --cream: #f5f5dc;
+    --yellow: #FFD24A;
+    --glass: rgba(255,255,255,0.06);
+    --card-bg: rgba(18,14,12,0.72);
+    --accent: linear-gradient(90deg, #b07a49, #8b5a2b);
+    --transition: all 0.28s cubic-bezier(.2,.9,.3,1);
+  }
+
+  /* Background with dynamic dots */
+  body{
+    background: linear-gradient(135deg, var(--brown-light) 0%, var(--cream) 100%);
+    min-height:100vh;
+    margin:0;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--cream);
+  }
+  body::before{
+    content:"";
+    position:fixed;
+    width:300%;
+    height:300%;
+    top:-100%;
+    left:-100%;
+    background: radial-gradient(circle, rgba(255,255,255,0.08) 10%, transparent 10.5%);
+    background-size: 30px 30px;
+    animation: float 20s infinite linear;
+    z-index:-1;
+  }
+  @keyframes float {
+    0% { transform: translate(0,0) rotate(0deg); }
+    100% { transform: translate(-30px,-30px) rotate(360deg); }
+  }
+
+  /* Navbar always pinned on top */
+  .navbar {
+    position: fixed !important;
+    top: 0; left: 0; right: 0;
+    z-index: 9999;
+    background: rgba(112, 62, 35, 0.9);
+    border-bottom: 2px solid var(--yellow);
+  }
+
+  /* Wrapper */
+  .admin-wrapper {
+    padding: calc(150px + 1.5rem) 1.25rem 4rem;
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    min-height: calc(100vh - 80px);
+    box-sizing:border-box;
+  }
+
+  /* Card */
+  .dashboard-card{
+    width: min(980px, 98%);
+    background: rgba(112, 62, 35, 0.9);
+    border-bottom: 2px solid var(--yellow);
+    border-radius: 16px;
+    padding: clamp(15px, 3.6vw, 34px);
+    box-shadow: 0 20px 40px rgba(15,10,8,0.35), inset 0 1px 0 rgba(255,255,255,0.03);
+    position:relative;
+    overflow:hidden;
+    backdrop-filter: blur(8px);
+  }
+  .dashboard-card::before{
+    content:"";
+    position:absolute;
+    left:0; right:0; top:0;
+    height:6px;
+    background: linear-gradient(90deg, rgba(255,210,120,0.95), rgba(139,115,85,0.95));
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    box-shadow: 0 6px 20px rgba(255,210,120,0.06);
+  }
+
+  .dashboard-inner{
+    display:flex;
+    flex-direction:column;
+    gap: clamp(14px, 2.4vw, 20px);
+  }
+
+  /* Form styling */
+  form{
+    width:100%;
+    margin-top:1rem;
+    display:flex;
+    flex-direction:column;
+    gap:1.5rem;
+  }
+  
+  .form-label { 
+    font-weight:600; 
+    color: var(--cream); 
+    margin-bottom: 0.5rem;
+    display: block;
+  }
+
+  .form-control, .form-select {
+    border-radius: 10px;
+    padding: 12px 16px;
+    border: 2px solid var(--brown-mid);
+    background: var(--cream);
+    color: var(--black);
+    transition: var(--transition);
+    width:100%;
+    font-size: 1rem;
+  }
+  
+  .form-control:focus, .form-select:focus {
+    outline:none;
+    border-color: var(--yellow);
+    box-shadow: 0 0 0 4px rgba(246, 245, 244, 0.25);
+  }
+
+  /* Buttons (copied from student page advanced version) */
+  .btn-dashboard{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    width:100%;
+    max-width:420px;
+    padding: 12px 18px;
+    border-radius: 12px;
+    text-decoration:none;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:0.7px;
+    font-size: clamp(0.95rem, 1.8vw, 1.05rem);
+    color: var(--black);
+    background: linear-gradient(180deg, var(--yellow), #f6c95a);
+    border: 2px solid rgba(0,0,0,0.08);
+    box-shadow: 0 6px 18px rgba(122,82,48,0.12),
+                0 2px 6px rgba(0,0,0,0.35),
+                inset 0 -6px 24px rgba(0,0,0,0.06);
+    transition: var(--transition);
+    position:relative;
+    overflow:hidden;
+    cursor: pointer;
+    margin-right: 15px;
+  }
+  
+  .btn-dashboard::after{
+    content:""; position:absolute; top:0; left:-100%; width:100%; height:100%;
+    background: linear-gradient(120deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition:0.5s; z-index:1;
+  }
+  
+  .btn-dashboard::before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:8px;
+    background: linear-gradient(180deg, var(--brown-mid), var(--brown-dark));
+    border-top-left-radius:12px; border-bottom-left-radius:12px;
+    transform:translateX(-6px);
+    transition: var(--transition);
+    opacity:0.95; z-index:2;
+  }
+  
+  .btn-dashboard span{ position:relative; z-index:3; }
+  
+  .btn-dashboard:hover{
+    transform: translateY(-6px) scale(1.03);
+    letter-spacing: 1.5px;
+    box-shadow: 0 18px 40px rgba(255,210,74,0.25),
+                0 8px 18px rgba(0,0,0,0.55),
+                inset 0 -8px 28px rgba(0,0,0,0.08);
+  }
+  
+  .btn-dashboard:hover::before{ transform:translateX(0); width:12px; }
+  .btn-dashboard:hover::after{ left:100%; }
+  
+  .btn-cancel {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    padding: 12px 24px;
+    border-radius: 12px;
+    text-decoration:none;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:0.7px;
+    font-size: clamp(0.95rem, 1.8vw, 1.05rem);
+    color: var(--cream);
+    background: rgba(139, 69, 19, 0.7);
+    border: 2px solid rgba(255,255,255,0.1);
+    box-shadow: 0 6px 18px rgba(122,82,48,0.12);
+    transition: var(--transition);
+  }
+  
+  .btn-cancel:hover {
+    background: rgba(139, 69, 19, 0.9);
+    transform: translateY(-3px);
+    color: var(--cream);
+    text-decoration: none;
+  }
+
+  .button-group {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+  }
+
+  /* Form grid layout */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 25px;
+  }
+
+  .form-group {
+    margin-bottom: 0;
+  }
+
+  h2 {
+    color: var(--yellow);
+    text-align: center;
+    margin-bottom: 2rem;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .form-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .button-group {
+      flex-direction: column;
+    }
+    
+    .btn-dashboard, .btn-cancel {
+      width: 100%;
+      margin-right: 0;
+      margin-bottom: 10px;
+    }
+    
+    .admin-wrapper {
+      padding: calc(120px + 1rem) 1rem 2rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .dashboard-card {
+      padding: 20px 15px;
+    }
+    
+    .form-control, .form-select {
+      padding: 10px 14px;
+    }
+  }
+</style>
+
+<div class="admin-wrapper">
+  <div class="dashboard-card" role="region" aria-label="Edit Timetable Entry">
+    <div class="dashboard-inner">
+      <h2>Edit Timetable Entry</h2>
+      
+      <form method="POST">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Batch</label>
+            <select class="form-select" name="batch_id" required>
+                <option value="">Select Batch</option>
+                {% for batch in batches %}
+                    <option value="{{ batch[0] }}" {% if entry[2] == batch[0] %}selected{% endif %}>{{ batch[1] }}</option>
+                {% endfor %}
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Department</label>
+            <select class="form-select" name="department_id" required>
+                <option value="">Select Department</option>
+                {% for department in departments %}
+                    <option value="{{ department[0] }}" {% if entry[3] == department[0] %}selected{% endif %}>{{ department[1] }}</option>
+                {% endfor %}
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Semester</label>
+            <select class="form-select" name="semester_id" required>
+                <option value="">Select Semester</option>
+                {% for semester in semesters %}
+                    <option value="{{ semester[0] }}" {% if entry[4] == semester[0] %}selected{% endif %}>{{ semester[1] }}</option>
+                {% endfor %}
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Course</label>
+            <select class="form-select" name="course_id" required>
+                <option value="">Select Course</option>
+                {% for course in courses %}
+                    <option value="{{ course[0] }}" {% if entry[1] == course[0] %}selected{% endif %}>{{ course[1] }}</option>
+                {% endfor %}
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Day</label>
+            <select class="form-select" name="day" required>
+                <option value="">Select Day</option>
+                <option value="Monday" {% if entry[5] == 'Monday' %}selected{% endif %}>Monday</option>
+                <option value="Tuesday" {% if entry[5] == 'Tuesday' %}selected{% endif %}>Tuesday</option>
+                <option value="Wednesday" {% if entry[5] == 'Wednesday' %}selected{% endif %}>Wednesday</option>
+                <option value="Thursday" {% if entry[5] == 'Thursday' %}selected{% endif %}>Thursday</option>
+                <option value="Friday" {% if entry[5] == 'Friday' %}selected{% endif %}>Friday</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Start Time</label>
+            <input type="time" class="form-control" name="start_time" value="{{ entry[6] }}" required>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">End Time</label>
+            <input type="time" class="form-control" name="end_time" value="{{ entry[7] }}" required>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Class Type</label>
+            <select class="form-select" name="class_type" required>
+                <option value="">Select Class Type</option>
+                <option value="Th" {% if entry[8] == 'Theory' %}selected{% endif %}>Theory</option>
+                <option value="Pr" {% if entry[8] == 'Practical' %}selected{% endif %}>Practical</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="button-group">
+          <button type="submit" class="btn-dashboard"><span>Update Entry</span></button>
+          <a href="{{ url_for('timetable') }}" class="btn-cancel">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

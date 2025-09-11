@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+
+<style>
+    :root {
+        --primary-brown: #8B7355;
+        --light-brown: #D2B48C;
+        --dark-brown: #654321;
+        --cream: #F5F5DC;
+        --gold: #DAA520;
+        --transition: all 0.3s ease;
+    }
+    
+    /* Remove any global flex properties that might affect the nav */
+    body {
+        background: linear-gradient(135deg, var(--light-brown) 0%, var(--cream) 100%);
+        min-height: 100vh;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        position: relative;
+        overflow-x: hidden;
+        display: block; /* Changed from flex */
+        margin: 0;
+        padding: 0;
+    }
+    
+    body::before {
+        content: "";
+        position: fixed; /* Changed from absolute */
+        width: 300%;
+        height: 300%;
+        top: -100%;
+        left: -100%;
+        background: radial-gradient(circle, rgba(90, 70, 59, 0.15) 10%, transparent 10.5%);
+        background-size: 30px 30px;
+        animation: float 20s infinite linear;
+        z-index: -1;
+    }
+    
+    @keyframes float {
+        0% { transform: translate(0, 0) rotate(0deg); }
+        100% { transform: translate(-30px, -30px) rotate(360deg); }
+    }
+    
+    /* Main content wrapper */
+    .main-content {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: calc(100vh - 80px); /* Adjust based on your nav height */
+        padding: 20px;
+        box-sizing: border-box;
+    }
+    
+    .login-container {
+        width: 100%;
+        max-width: 430px;
+        perspective: 1000px;
+        padding-top: 50px;
+    }
+    
+    .login-card {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+        padding: 2.5rem;
+        transform-style: preserve-3d;
+        transition: var(--transition);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .login-card:hover {
+        transform: translateY(-5px) rotateX(2deg);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+    }
+    
+    .logo-container {
+        text-align: center;
+        margin-bottom: 1.5rem;
+        transform: translateZ(20px);
+    }
+    
+    .logo-container img {
+        width: 70px;
+        height: 70px;
+        object-fit: contain;
+        filter: drop-shadow(0 5px 10px rgba(139, 115, 85, 0.3));
+        transition: var(--transition);
+    }
+    
+    .logo-container img:hover {
+        transform: scale(1.1) rotate(5deg);
+    }
+    
+    h2 {
+        color: var(--dark-brown);
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 1.5rem;
+        position: relative;
+        transform: translateZ(30px);
+    }
+    
+    h2::after {
+        content: "";
+        position: absolute;
+        bottom: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 50px;
+        height: 3px;
+        background: linear-gradient(to right, var(--gold), var(--primary-brown));
+        border-radius: 3px;
+    }
+    
+    .form-label {
+        color: var(--dark-brown);
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        display: block;
+        transform: translateZ(15px);
+    }
+    
+    .form-control {
+        width: 100%;
+        background: rgba(255, 255, 255, 0.9);
+        border: 2px solid transparent;
+        border-radius: 12px;
+        padding: 0.75rem 2.75rem 0.75rem 1.25rem; /* space on right for icons */
+        color: var(--dark-brown);
+        transition: var(--transition);
+        box-shadow: 0 5px 15px rgba(139, 115, 85, 0.1);
+    }
+
+    .form-control:focus {
+        border-color: var(--primary-brown);
+        box-shadow: 0 5px 20px rgba(139, 115, 85, 0.2);
+    }
+    
+    .form-control::placeholder {
+        color: rgba(139, 115, 85, 0.6);
+    }
+    
+    .input-group {
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    }
+
+    .input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }    
+
+    .input-icon {
+        position: absolute;
+        right: 40px; /* reserve space for toggle icon */
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 1.2rem;
+        color: var(--primary-brown);
+        pointer-events: none;
+    }
+    
+    .btn {
+        background: linear-gradient(135deg, var(--primary-brown) 0%, var(--dark-brown) 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        transition: var(--transition);
+        box-shadow: 0 5px 15px rgba(139, 115, 85, 0.4);
+        transform: translateZ(20px);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .btn:hover {
+        transform: translateY(-3px) translateZ(25px);
+        box-shadow: 0 8px 20px rgba(139, 115, 85, 0.5);
+    }
+    
+    .btn::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: 0.5s;
+    }
+    
+    .btn:hover::before {
+        left: 100%;
+    }
+    
+    .alert {
+        border-radius: 12px;
+        transform: translateZ(15px);
+        animation: shake 0.5s ease-in-out;
+    }
+
+        .toggle-password {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        font-size: 1rem;
+        cursor: pointer;
+        color: var(--primary-brown);
+    }
+
+    .toggle-password:focus {
+        outline: none;
+    }
+    
+    @keyframes shake {
+        0%, 100% { transform: translateX(0) translateZ(15px); }
+        20%, 60% { transform: translateX(-5px) translateZ(15px); }
+        40%, 80% { transform: translateX(5px) translateZ(15px); }
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 576px) {
+        .login-card {
+            padding: 2rem 1.5rem;
+            margin: 1rem;
+        }
+        
+        .main-content {
+            padding: 10px;
+        }
+        
+        h2 {
+            font-size: 1.75rem;
+        }
+    }
+    
+    /* Reduced motion for accessibility */
+    @media (prefers-reduced-motion: reduce) {
+        * {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+</style>
+
+<!-- Navigation will appear here automatically from base.html -->
+
+<div class="main-content">
+    <div class="login-container">
+        <div class="login-card">
+            <div class="logo-container">
+                <img src="{{ url_for('static', filename='uni_logo.png') }}" alt="University Logo" width="70" height="70">
+            </div>
+            <h2 class="text-center mb-4">Login</h2>
+
+            {% if message %}
+            <div class="alert alert-danger text-center">{{ message }}</div>
+            {% endif %}
+            <form method="POST" action="{{ url_for('login') }}">
+            <div class="input-group">
+                    <label for="email" class="form-label">Email</label>
+                <div class="input-wrapper">
+                    <input type="email" class="form-control" id="email" name="email" required placeholder="Enter your email">
+                </div>
+            </div>
+
+        <div class="input-group">
+            <label for="password" class="form-label">Password</label>
+            <div class="input-wrapper">
+                <input type="password" class="form-control" id="password" name="password" required placeholder="Enter your password">
+            </div>
+        </div>
+    
+        <button type="submit" class="btn w-100">Login</button>
+        </form>
+ 
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}

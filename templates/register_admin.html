@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Register Admin</h1>
+<form method="POST">
+    <div class="mb-3">
+        <label for="user_id" class="form-label">Admin ID</label>
+        <input type="text" class="form-control" id="user_id" name="user_id" required>
+    </div>
+    <div class="mb-3">
+        <label for="name" class="form-label">Name</label>
+        <input type="text" class="form-control" id="name" name="name" required>
+    </div>
+    <div class="mb-3">
+        <label for="email" class="form-label">Email</label>
+        <input type="email" class="form-control" id="email" name="email" required>
+    </div>
+    <div class="mb-3">
+        <label for="password" class="form-label">Password</label>
+        <input type="password" class="form-control" id="password" name="password" required>
+    </div>
+    <button type="submit" class="btn">Register Admin</button>
+</form>
+{% endblock %}

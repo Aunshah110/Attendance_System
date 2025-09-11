@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>View Attendance</h1>
+<form method="POST">
+    <div class="mb-3">
+        <label for="course_id" class="form-label">Course</label>
+        <select class="form-select" id="course_id" name="course_id" required>
+            <option value="">-- Select Course --</option>
+            {% for course in courses %}
+                <option value="{{ course[0] }}" {% if selected_course == course[0]|string %}selected{% endif %}>{{ course[1] }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit" class="btn">View Attendance</button>
+</form>
+
+{% if attendance_data %}
+    <h2 class="mt-4">Attendance for Student: {{ student_id }}</h2>
+    <table class="table table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>Date</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in attendance_data %}
+                <tr>
+                    <td>{{ entry[0] }}</td>
+                    <td>{{ entry[1] }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+{% endblock %}

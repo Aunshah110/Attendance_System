@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}Home - Student Attendance{% endblock %}
+{% block content %}
+
+<!-- Logo -->
+<div class="logo-container text-center mt-3">
+  <img src="{{ url_for('static', filename='uni_logo.png') }}" alt="University Logo">
+</div>
+
+<!-- University Title -->
+<h2 class="uni-title">
+  BENAZIR BHUTTO SHAHEED UNIVERSITY OF TECHNOLOGY AND SKILL DEVELOPMENT KHAIRPUR
+</h2>
+
+<!-- Container -->
+<div class="container text-center mt-4">
+  <!-- Animated Project Title + Slogan -->
+  <div class="animated-title">
+    <h1 class="project-title">UTechRollCall – Attendance Solution</h1>
+    <p class="slogan">Innovation • Automation • Transformation</p>
+  </div>
+
+  <!-- Buttons -->
+  <div class="btn-group-custom mt-4">
+    <a href="{{ url_for('login') }}" class="btn-custom">Login</a>
+    <!-- <a href="{{ url_for('register_admin') }}" class="btn-custom">Register Admin</a> -->
+  </div>
+</div>
+
+<!-- Footer Stripe -->
+<footer class="footer-stripe" role="contentinfo" aria-label="Site footer">
+  <div class="scroll-wrapper">
+    <span class="scroll-text">POWERED BY <span class="highlight">KAZMI</span></span>
+  </div>
+</footer>
+
+<!-- Styling -->
+<style>
+/* Background */
+body {
+  background: linear-gradient(135deg, #f3e5d7, #d2b48c, #8b5e3c);
+  color: #2c2c2c;
+  margin: 0;
+  padding-bottom: 80px; /* Space for footer stripe */
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Logo */
+.logo-container img {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.25));
+  transition: transform 0.3s ease;
+}
+.logo-container img:hover {
+  transform: scale(1.08) rotate(3deg);
+}
+
+/* University Title */
+.uni-title {
+  color: #512404;
+  font-weight: 700;
+  font-size: 1.5rem;
+  text-align: center;
+  margin-top: 15px;
+  margin-bottom: 25px;
+  padding: 0 10px;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+/* Title + Slogan */
+.animated-title {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.project-title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #4a2a13;
+  text-shadow: 0 3px 12px rgba(0,0,0,0.3);
+  animation: fadeInDown 1.5s ease-out;
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.slogan {
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: #704023;
+  margin-top: 12px;
+  font-style: italic;
+  animation: pulse 3s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+
+/* Custom Buttons */
+.btn-group-custom {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.btn-custom {
+  background: linear-gradient(135deg, #704023, #512404);
+  color: #fff;
+  padding: 12px 100px;
+  border-radius: 12px;
+  font-size: 1.2rem;
+  color: #fefefe;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.25);
+}
+.btn-custom:hover {
+  background: linear-gradient(135deg, #512404, #704023);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 18px rgba(0,0,0,0.35);
+}
+
+.footer-stripe{
+  position: fixed;       /* stays stuck to bottom */
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 7%;
+  background: linear-gradient(90deg, #5a3620, #704023);
+  color: #fff;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.14);
+  z-index: 1000;
+}
+
+.scroll-wrapper{
+  height: 56px;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  overflow:hidden;
+  padding: 6px 12px;
+}
+
+.scroll-text{
+  display:inline-block;
+  white-space:nowrap;
+  font-weight:800;
+  font-size: clamp(12px, 1.6vw, 16px);
+  transform: translateX(-120%);    /* start off-screen left */
+  opacity: 0;
+  animation: slideToCenter 2.4s cubic-bezier(.22,.9,.28,1) forwards;
+}
+
+@keyframes slideToCenter{
+  0%   { transform: translateX(-120%); opacity: 0; }
+  55%  { transform: translateX(-12%);  opacity: 1; }
+  75%  { transform: translateX(3%);    opacity: 1; }
+  100% { transform: translateX(0);     opacity: 1; }
+}
+
+.highlight{
+  color: #ffda79;
+  text-shadow: 0 0 8px rgba(255,218,121,0.85);
+}
+
+/* Reduce motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .scroll-text { animation: none !important; transform: none !important; opacity: 1 !important; }
+}
+
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .project-title { font-size: 1.75rem; }
+  .slogan { font-size: 1rem; }
+  .btn-custom { font-size: 0.9rem; padding: 10px 20px; }
+  .uni-title { font-size: 1.1rem; }
+}
+
+@media (max-width: 480px) {
+  .project-title { font-size: 1.4rem; }
+  .slogan { font-size: 0.9rem; }
+  .uni-title { font-size: 1rem; }
+}
+</style>
+{% endblock %}
