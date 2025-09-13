@@ -263,9 +263,27 @@
     border-radius: 8px;
     font-weight: 600;
     text-decoration: none;
-    display: inline-block;
-    text-align: center;
+    display: inline-flex;   /* better alignment */
+    justify-content: center;
+    align-items: center;
     transition: var(--transition);
+    font-size: clamp(0.8rem, 1.5vw, 1rem); /* responsive text */
+    min-width: 90px;        /* prevents squishing */
+  } 
+
+/* Ensure buttons don’t break layout on small screens */
+  @media (max-width: 768px) {
+    .btn-action {
+     width: 100%;          /* full width for mobile */
+      margin: 4px 0;        /* spacing between stacked buttons */
+   }
+  
+    td[data-label="Update"], 
+    td[data-label="Delete"] {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;             /* spacing between Update/Delete */
+    }
   }
   
   .btn-update {

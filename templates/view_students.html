@@ -192,6 +192,61 @@
   .btn-dashboard:hover::before{ transform:translateX(0); width:12px; }
   .btn-dashboard:hover::after{ left:100%; }
 
+  .btn-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  font-size: clamp(0.75rem, 1.6vw, 0.9rem);
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+
+/* Colors for different actions */
+.btn-edit {
+  background: linear-gradient(180deg, #4CAF50, #3e8e41);
+  color: white;
+  border: none;
+}
+.btn-edit:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.btn-delete {
+  background: linear-gradient(180deg, #e74c3c, #c0392b);
+  color: white;
+  border: none;
+}
+.btn-delete:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+/* Desktop: keep inline */
+@media (min-width: 721px) {
+  td[data-label="Edit"], td[data-label="Delete"] {
+    text-align: center;
+  }
+}
+
+/* Mobile: make them full width stacked under each row */
+@media (max-width: 720px) {
+  td[data-label="Edit"], td[data-label="Delete"] {
+    display: block;
+    width: 100%;
+    text-align: left;
+    margin: 0px 0;
+  }
+  .btn-action {
+    width: 100%;
+  }
+} 
+
   /* Table styling */
   table{
     width:100%;
@@ -315,12 +370,12 @@
               <td data-label="Batch">{{ student[3] }}</td>
               <td data-label="Department">{{ student[4] }}</td>
               {% if user_role == 'admin' %}
-                <td data-label="Edit">
-                  <a href="{{ url_for('update_student', student_id=student[0]) }}" class="btn-dashboard btn-sm"><span>Edit</span></a>
-                </td>
-                <td data-label="Delete">
-                  <button class="btn-dashboard btn-sm delete-btn" data-student-id="{{ student[0] }}"><span>Delete</span></button>
-                </td>
+                  <td data-label="Edit">
+                      <a href="{{ url_for('update_student', student_id=student[0]) }}" class="btn-action btn-edit">Edit</a>
+                  </td>
+                  <td data-label="Delete">
+                      <button class="btn-action btn-delete delete-btn" data-student-id="{{ student[0] }}">Delete</button>
+                  </td>
               {% endif %}
             </tr>
           {% endfor %}

@@ -162,21 +162,102 @@
   .btn:hover::before{ transform:translateX(0); width:12px; }
   .btn:hover::after{ left:100%; }
 
-  table.table {
-    border-radius: 12px;
-    overflow:hidden;
-    background: var(--cream);
-    color: var(--black);
-    font-size:0.95rem;
-  }
-  thead.table-dark { background: var(--brown-mid) !important; color: var(--cream); }
+  /* Responsive table styles */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
 
-  @media(max-width:768px){
-    .row { flex-direction:column; }
-    .col-md-3 { width:100%; margin-bottom:1rem; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--cream);
+  color: var(--black);
+  font-size: 0.95rem;
+  min-width: 600px; /* Minimum width for table */
+}
+
+/* Updated table header - black with white text */
+thead {
+  background: var(--black) !important;
+  color: var(--cream);
+}
+
+th, td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+th {
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+}
+  
+  tbody tr:hover {
+    background-color: rgba(210, 166, 121, 0.2);
+  }
+  
+  /* Responsive adjustments for table */
+  @media screen and (max-width: 768px) {
+    th, td {
+      padding: 10px 8px;
+      font-size: 0.85rem;
+    }
+    
+    /* Stack table headers on very small screens */
+    @media screen and (max-width: 480px) {
+      table {
+        min-width: 300px;
+      }
+      
+      th, td {
+        padding: 8px 5px;
+        font-size: 0.8rem;
+      }
+    }
   }
 
-     h1{
+  /* Form responsive adjustments */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    width: 100%;
+    margin-bottom: 1.5rem;
+  }
+  
+  /* Button container responsive adjustments */
+  .button-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1.5rem;
+  }
+  
+  .button-container .btn {
+    flex: 1;
+    min-width: 150px;
+    max-width: 200px;
+  }
+
+  /* Report title responsive adjustments */
+  .report-title {
+    margin: 1.5rem 0;
+    font-size: clamp(1.2rem, 2.5vw, 1.5rem);
+    font-weight: 600;
+    color: var(--yellow);
+    text-align: center;
+    line-height: 1.4;
+  }
+
+  /* Page title */
+  h1{
     margin:0;
     font-size: clamp(1.4rem, 3vw, 2rem);
     font-weight:800;
@@ -193,8 +274,8 @@
         <h1>Generate Report</h1>
 
       <form method="POST" id="reportForm" class="w-100">
-        <div class="row g-3 mb-4">
-          <div class="col-md-3">
+        <div class="form-grid">
+          <div>
             <label for="batch_id" class="form-label">Batch</label>
             <select class="form-select" id="batch_id" name="batch_id" required onchange="filterCourses()">
               <option value="">-- Select Batch --</option>
@@ -203,7 +284,7 @@
               {% endfor %}
             </select>
           </div>
-          <div class="col-md-3">
+          <div>
             <label for="department_id" class="form-label">Department</label>
             <select class="form-select" id="department_id" name="department_id" required onchange="filterCourses()">
               <option value="">-- Select Department --</option>
@@ -212,7 +293,7 @@
               {% endfor %}
             </select>
           </div>
-          <div class="col-md-3">
+          <div>
             <label for="semester_id" class="form-label">Semester</label>
             <select class="form-select" id="semester_id" name="semester_id" required onchange="filterCourses()">
               <option value="">-- Select Semester --</option>
@@ -221,7 +302,7 @@
               {% endfor %}
             </select>
           </div>
-          <div class="col-md-3">
+          <div>
             <label for="course_id" class="form-label">Course</label>
             <select class="form-select" id="course_id" name="course_id" required disabled>
               <option value="">-- Select Course --</option>
@@ -231,36 +312,41 @@
             </select>
           </div>
         </div>
-        <button type="submit" class="btn"><span>Generate Report</span></button>
+        <div style="text-align: center;">
+          <button type="submit" class="btn"><span>Generate Report</span></button>
+        </div>
       </form>
 
       {% if report_data %}
-      <div class="mt-5 w-100">
-        <h3>Report for {{ batch_name }}, Department: {{ dept_name }}, {{ semester_name }}, Course: {{ course_name }}</h3>
-        <table class="table table-striped mt-3">
-          <thead class="table-dark">
-            <tr>
-              <th>Student ID</th>
-              <th>Name</th>
-              <th>Total Days</th>
-              <th>Present Days</th>
-              <th>Percentage</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for student in report_data %}
+      <div class="w-100">
+        <h3 class="report-title">Report for {{ batch_name }}, Department: {{ dept_name }}, {{ semester_name }}, Course: {{ course_name }}</h3>
+        
+        <div class="table-container">
+          <table>
+            <thead>
               <tr>
-                <td>{{ student[0] }}</td>
-                <td>{{ student[1] }}</td>
-                <td>{{ student[2] }}</td>
-                <td>{{ student[3] }}</td>
-                <td>{{ student[4] }}%</td>
+                <th>Student ID</th>
+                <th>Name</th>
+                <th>Total Days</th>
+                <th>Present Days</th>
+                <th>Percentage</th>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {% for student in report_data %}
+                <tr>
+                  <td>{{ student[0] }}</td>
+                  <td>{{ student[1] }}</td>
+                  <td>{{ student[2] }}</td>
+                  <td>{{ student[3] }}</td>
+                  <td>{{ student[4] }}%</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
 
-        <div class="mt-4 d-flex flex-wrap gap-3">
+        <div class="button-container">
           <form method="POST">
             <input type="hidden" name="batch_id" value="{{ selected_batch }}">
             <input type="hidden" name="department_id" value="{{ selected_department }}">
