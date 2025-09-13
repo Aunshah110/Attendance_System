@@ -298,11 +298,20 @@
                 <td>{{ student[1] }}</td>
                 <td>
                   <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="attendance_{{ student[0] }}" id="present_{{ student[0] }}" value="present" required>
+                      <input class="form-check-input" type="radio" 
+                            name="attendance_{{ student[0] }}" 
+                            id="present_{{ student[0] }}" 
+                            value="present" 
+                            checked 
+                            required>
                     <label class="form-check-label" for="present_{{ student[0] }}">Present</label>
                   </div>
                   <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="attendance_{{ student[0] }}" id="absent_{{ student[0] }}" value="absent" required>
+                    <input class="form-check-input" type="radio" 
+                        name="attendance_{{ student[0] }}" 
+                        id="absent_{{ student[0] }}" 
+                        value="absent" 
+                        required>
                     <label class="form-check-label" for="absent_{{ student[0] }}">Absent</label>
                   </div>
                 </td>
