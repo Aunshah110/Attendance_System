@@ -1183,25 +1183,26 @@ def mark_attendance():
     students = []
 
     if batch_id and department_id and semester_id:
-        # Fetch courses allocated to this teacher
+    # Fetch courses allocated to this teacher for the selected batch, dept, semester
         cursor.execute('''
             SELECT c.id, c.name 
             FROM courses c 
             JOIN course_allocations ca ON c.id = ca.course_id
-            WHERE c.department_id = %s AND c.semester_id = %s AND ca.teacher_id = %s
-        ''', (department_id, semester_id, teacher_id))
-        courses = cursor.fetchall()
+            WHERE ca.batch_id = %s AND c.department_id = %s 
+            AND c.semester_id = %s AND ca.teacher_id = %s
+        ''', (batch_id, department_id, semester_id, teacher_id))
+    courses = cursor.fetchall()
 
-        # Fetch students if course selected
-        course_id = request.args.get('course_id')
-        if course_id:
-            cursor.execute('''
-                SELECT id, name 
-                FROM users 
-                WHERE role = 'student' AND batch_id = %s AND department_id = %s
-                ORDER BY CAST(SUBSTRING(id FROM '(\\d+)$') AS INTEGER)
-            ''', (batch_id, department_id))
-            students = cursor.fetchall()
+    # Fetch students if course selected
+    course_id = request.args.get('course_id')
+    if course_id:
+        cursor.execute('''
+            SELECT id, name 
+            FROM users 
+            WHERE role = 'student' AND batch_id = %s AND department_id = %s
+            ORDER BY CAST(SUBSTRING(id FROM '(\\d+)$') AS INTEGER)
+        ''', (batch_id, department_id))
+        students = cursor.fetchall()
 
     conn.close()
     return render_template(
