@@ -171,24 +171,27 @@ def login():
         return redirect(url_for(f"{session['role']}_dashboard"))
 
     if request.method == 'POST':
-        email = request.form['email']
+        # Convert input email to lowercase
+        email = request.form['email'].strip().lower()
         password = request.form['password']
 
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM users WHERE email = %s', (email,))
+
+        # Ensure DB email is compared in lowercase too
+        cursor.execute('SELECT * FROM users WHERE LOWER(email) = %s', (email,))
         user = cursor.fetchone()
         conn.close()
 
         if user and check_password_hash(user[3], password):
             session['user_id'] = user[0]
-            session['name'] = user[1]       # column index 1 = name
-            session['role'] = user[4].lower()  # normalize role
-            session['logged_in'] = True      # 👈 add login flag
+            session['name'] = user[1]           # column index 1 = name
+            session['role'] = user[4].lower()   # normalize role
+            session['logged_in'] = True         # login flag
 
             flash('Login successful!', 'success')
 
-            # Redirect to the correct dashboard
+            # Redirect to correct dashboard
             if session['role'] == 'admin':
                 return redirect(url_for('admin_dashboard'))
             elif session['role'] == 'teacher':
