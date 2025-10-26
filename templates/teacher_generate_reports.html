@@ -110,7 +110,7 @@
   }
 
   /* Buttons - reused from student page */
-  .btn {
+  .btnn {
     display:inline-flex;
     align-items:center;
     justify-content:center;
@@ -132,7 +132,7 @@
     position:relative;
     overflow:hidden;
   }
-  .btn::after{
+  .btnn::after{
     content:"";
     position:absolute;
     top:0; left:-100%;
@@ -141,7 +141,7 @@
     transition:0.5s;
     z-index:1;
   }
-  .btn::before{
+  .btnn::before{
     content:"";
     position:absolute;
     left:0; top:0; bottom:0;
@@ -153,14 +153,14 @@
     transition: var(--transition);
     z-index:2;
   }
-  .btn span { position:relative; z-index:3; }
-  .btn:hover {
+  .btnn span { position:relative; z-index:3; }
+  .btnn:hover {
     transform: translateY(-6px) scale(1.03);
     letter-spacing: 1.5px;
     box-shadow:0 18px 40px rgba(255,210,74,0.25), 0 8px 18px rgba(0,0,0,0.55);
   }
-  .btn:hover::before{ transform:translateX(0); width:12px; }
-  .btn:hover::after{ left:100%; }
+  .btnn:hover::before{ transform:translateX(0); width:12px; }
+  .btnn:hover::after{ left:100%; }
 
   /* Responsive table styles */
 .table-container {
@@ -240,7 +240,7 @@ th {
     margin-top: 1.5rem;
   }
   
-  .button-container .btn {
+  .button-container .btnn {
     flex: 1;
     min-width: 150px;
     max-width: 200px;
@@ -313,7 +313,7 @@ th {
           </div>
         </div>
         <div style="text-align: center;">
-          <button type="submit" class="btn"><span>Generate Report</span></button>
+          <button type="submit" class="btnn"><span>Generate Report</span></button>
         </div>
       </form>
 
@@ -352,8 +352,8 @@ th {
             <input type="hidden" name="department_id" value="{{ selected_department }}">
             <input type="hidden" name="semester_id" value="{{ selected_semester }}">
             <input type="hidden" name="course_id" value="{{ selected_course }}">
-            <button type="submit" name="export_csv" class="btn"><span>Export as CSV</span></button>
-            <button type="submit" name="export_pdf" class="btn"><span>Export as PDF</span></button>
+            <button type="submit" name="export_csv" class="btnn"><span>Export as CSV</span></button>
+            <button type="submit" name="export_pdf" class="btnn"><span>Export as PDF</span></button>
           </form>
         </div>
       </div>

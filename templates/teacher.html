@@ -14,7 +14,7 @@
     --transition: all 0.28s cubic-bezier(.2,.9,.3,1);
   }
 
-  /* -- Recreate login page background with dynamic dots -- */
+  /* --- Static dotted background --- */
   body{
     background: linear-gradient(135deg, var(--brown-light) 0%, var(--cream) 100%);
     min-height:100vh;
@@ -25,18 +25,13 @@
   body::before{
     content:"";
     position:fixed;
-    width:300%;
-    height:300%;
-    top:-100%;
-    left:-100%;
+    width:100%;
+    height:100%;
+    top:0;
+    left:0;
     background: radial-gradient(circle, rgba(90, 70, 59, 0.15) 10%, transparent 10.5%);
     background-size: 30px 30px;
-    animation: float 20s infinite linear;
     z-index:-1;
-  }
-  @keyframes float {
-    0% { transform: translate(0,0) rotate(0deg); }
-    100% { transform: translate(-30px,-30px) rotate(360deg); }
   }
 
   /* Ensure navbar from base stays on top */
@@ -105,9 +100,6 @@
     font-size: clamp(1.15rem, 2.6vw, 1.65rem);
     max-width: 100%;
     word-break: break-word;
-    opacity:0;
-    transform: translateY(8px);
-    transition: var(--transition);
     text-shadow: 0 6px 18px rgba(0,0,0,0.5);
   }
 
@@ -198,19 +190,14 @@
     .dashboard-card{ padding:18px; border-radius:14px; }
     .btn-dashboard{ font-size: 0.95rem; padding:10px 14px; }
   }
-
-  .typed-complete{ opacity:1; transform: translateY(0); }
 </style>
 
 <div class="teacher-wrapper">
   <div class="dashboard-card" role="region" aria-label="Teacher dashboard">
     <div class="dashboard-inner">
-      <h2 id="welcome" class="welcome-message" data-full="Welcome, Mr {{ session['name'] }}!">
+      <h2 class="welcome-message">
         Welcome, Mr {{ session['name'] }}!
       </h2>
-      <noscript>
-        <h2 class="welcome-fallback">Welcome, Mr {{ session['name'] }}!</h2>
-      </noscript>
 
       <div class="dashboard-links" role="navigation" aria-label="Teacher links">
         <a href="{{ url_for('mark_attendance') }}" class="btn-dashboard"><span>Mark Attendance</span></a>
@@ -222,34 +209,6 @@
   </div>
 </div>
 
-<script>
-  // Typing reveal animation
-  document.addEventListener('DOMContentLoaded', function () {
-    const el = document.getElementById('welcome');
-    if (!el) return;
-    const fullText = (el.dataset.full || el.textContent || '').trim();
-    el.textContent = '';
-
-    const typedSpan = document.createElement('span');
-    typedSpan.setAttribute('aria-hidden','true');
-    el.appendChild(typedSpan);
-
-    const base = 22;
-    const variance = 16;
-    let i = 0;
-
-    function typeNext() {
-      if (i <= fullText.length) {
-        typedSpan.textContent = fullText.slice(0, i);
-        i++;
-        const delay = base + Math.floor(Math.random() * variance);
-        setTimeout(typeNext, delay);
-      } else {
-        el.classList.add('typed-complete');
-        typedSpan.textContent = fullText;
-      }
-    }
-    setTimeout(typeNext, 180);
-  });
-</script>
 {% endblock %}
+
+
