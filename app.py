@@ -1426,14 +1426,16 @@ def delete_timetable(timetable_id):
     return redirect(url_for('timetable'))
 
 @app.route('/timetable/view', methods=['GET', 'POST'])
-@role_required("teacher")
+@role_required("student", "teacher")
 def view_timetable():
-    # Role guard: allow teacher and student
-    if 'role' not in session or session['role'] not in ['teacher']:
+    if 'role' not in session or session['role'] not in ['teacher', 'student']:
         flash('Unauthorized: Teachers and Students only.', 'danger')
-        return redirect(url_for('home'))  # Changed from 'dashboard' to 'home'
+        return redirect(url_for('home'))
 
-    # Initialize template vars
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Template vars
     batches = []
     departments = []
     semesters = []
@@ -1441,76 +1443,136 @@ def view_timetable():
     selected_batch = None
     selected_department = None
     selected_semester = None
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    batch_name = None
+    department_name = None
 
     try:
-        # Populate dropdowns
+        # Load dropdown lists (assumes rows are tuples: (id, name, ...))
         cursor.execute('SELECT * FROM batches')
-        batches = cursor.fetchall()
+        batches = cursor.fetchall()          # list of tuples
         cursor.execute('SELECT * FROM departments')
         departments = cursor.fetchall()
         cursor.execute('SELECT * FROM semesters')
         semesters = cursor.fetchall()
 
+        # If student -> lock their batch & department from users table
+        if session.get('role') == 'student':
+            cursor.execute("""
+                SELECT batch_id, department_id
+                FROM users
+                WHERE id = %s AND role = 'student'
+                LIMIT 1
+            """, (session['user_id'],))
+            student_row = cursor.fetchone()
+            if not student_row:
+                flash('Student record not found.', 'danger')
+                return redirect(url_for('dashboard'))
+
+            # student_row is a tuple like (batch_id, department_id)
+            sid_batch = student_row[0]
+            sid_dept = student_row[1]
+
+            # Normalize to strings for template comparisons
+            selected_batch = str(sid_batch) if sid_batch is not None else None
+            selected_department = str(sid_dept) if sid_dept is not None else None
+
+            # Retrieve human-readable names for display (safe fallback to lists)
+            cursor.execute('SELECT name FROM batches WHERE id = %s LIMIT 1', (sid_batch,))
+            r = cursor.fetchone()
+            batch_name = r[0] if r and r[0] is not None else None
+
+            cursor.execute('SELECT name FROM departments WHERE id = %s LIMIT 1', (sid_dept,))
+            r = cursor.fetchone()
+            department_name = r[0] if r and r[0] is not None else None
+
+        # Handle form submission
         if request.method == 'POST' and 'generate_table' in request.form:
-            batch_id = request.form['batch_id']
-            department_id = request.form['department_id']
-            semester_id = request.form['semester_id']
-            selected_batch = batch_id
-            selected_department = department_id
+            semester_id = request.form.get('semester_id')
             selected_semester = semester_id
 
-            # 1) All time slots for the chosen B/D/S - FIXED ORDER BY
-            cursor.execute('''
-                SELECT DISTINCT start_time, end_time
-                FROM timetable
-                WHERE batch_id = %s AND department_id = %s AND semester_id = %s
-                ORDER BY start_time
-            ''', (batch_id, department_id, semester_id))
-            time_slots = cursor.fetchall()
+            # Determine which batch/department to use
+            if session.get('role') == 'student':
+                # Ensure we have the locked values
+                batch_id = selected_batch
+                department_id = selected_department
+            else:
+                batch_id = request.form.get('batch_id')
+                department_id = request.form.get('department_id')
 
-            # 2) Fetch entries grouped by day - FIXED ORDER BY
-            timetable_by_day = {d: {} for d in ['Monday','Tuesday','Wednesday','Thursday','Friday']}
+            # Basic validation
+            if not (batch_id and department_id and semester_id):
+                flash('Please select batch, department and semester.', 'warning')
+            else:
+                # Fetch time slots for that B/D/S
+                cursor.execute('''
+                    SELECT DISTINCT start_time, end_time
+                    FROM timetable
+                    WHERE batch_id = %s AND department_id = %s AND semester_id = %s
+                    ORDER BY start_time
+                ''', (batch_id, department_id, semester_id))
+                time_slots = cursor.fetchall()  # list of tuples (start_time, end_time)
 
-            cursor.execute('''
-                SELECT c.name, t.day, t.start_time, t.end_time,
-                       u.name AS teacher_name, t.class_type, t.id AS entry_id
-                FROM timetable t
-                JOIN courses c ON t.course_id = c.id
-                LEFT JOIN course_allocations ca ON ca.course_id = t.course_id
-                     AND ca.batch_id = t.batch_id
-                     AND ca.department_id = t.department_id
-                     AND ca.semester_id = t.semester_id
-                LEFT JOIN users u ON ca.teacher_id = u.id AND u.role = 'teacher'
-                WHERE t.batch_id = %s AND t.department_id = %s AND t.semester_id = %s
-                ORDER BY t.start_time
-            ''', (batch_id, department_id, semester_id))
+                # Prepare empty structure for days
+                timetable_by_day = {d: {} for d in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']}
 
-            for course_name, day, start_time, end_time, teacher_name, class_type, entry_id in cursor.fetchall():
-                time_key = f"{start_time}-{end_time}"
-                timetable_by_day[day][time_key] = {
-                    'course': course_name,
-                    'teacher': teacher_name,
-                    'class_type': class_type,
-                    'entry_id': entry_id,
-                }
+                # Fetch timetable entries
+                cursor.execute('''
+                    SELECT c.name, t.day, t.start_time, t.end_time,
+                           u.name AS teacher_name, t.class_type, t.id AS entry_id
+                    FROM timetable t
+                    JOIN courses c ON t.course_id = c.id
+                    LEFT JOIN course_allocations ca ON ca.course_id = t.course_id
+                         AND ca.batch_id = t.batch_id
+                         AND ca.department_id = t.department_id
+                         AND ca.semester_id = t.semester_id
+                    LEFT JOIN users u ON ca.teacher_id = u.id AND u.role = 'teacher'
+                    WHERE t.batch_id = %s AND t.department_id = %s AND t.semester_id = %s
+                    ORDER BY t.start_time
+                ''', (batch_id, department_id, semester_id))
 
-            # 3) Flatten into rows for template
-            for start_time, end_time in time_slots:
-                time_key = f"{start_time}-{end_time}"
-                row = {
-                    'start_time': start_time,
-                    'end_time': end_time,
-                    'days': {d: timetable_by_day[d].get(time_key) for d in ['Monday','Tuesday','Wednesday','Thursday','Friday']}
-                }
-                timetable_data.append(row)
+                rows = cursor.fetchall()
+                # rows: list of tuples (course_name, day, start_time, end_time, teacher_name, class_type, entry_id)
+                for course_name, day, start_time, end_time, teacher_name, class_type, entry_id in rows:
+                    time_key = f"{start_time}-{end_time}"
+                    timetable_by_day[day][time_key] = {
+                        'course': course_name,
+                        'teacher': teacher_name,
+                        'class_type': class_type,
+                        'entry_id': entry_id,
+                    }
+
+                # Flatten rows to template-friendly structure
+                for start_time, end_time in time_slots:
+                    time_key = f"{start_time}-{end_time}"
+                    row = {
+                        'start_time': start_time,
+                        'end_time': end_time,
+                        'days': {d: timetable_by_day[d].get(time_key) for d in ['Monday','Tuesday','Wednesday','Thursday','Friday']}
+                    }
+                    timetable_data.append(row)
+
+                # If batch_name/department_name not already set (teacher path), derive them for display
+                if not batch_name:
+                    # try to find in batches list
+                    for b in batches:
+                        # assume batches rows start with id then name
+                        if str(b[0]) == str(batch_id):
+                            batch_name = b[1]
+                            break
+                if not department_name:
+                    for d in departments:
+                        if str(d[0]) == str(department_id):
+                            department_name = d[1]
+                            break
 
     except Exception as e:
         flash(f'Error loading timetable: {str(e)}', 'error')
-        
+
     finally:
+        try:
+            cursor.close()
+        except:
+            pass
         conn.close()
 
     return render_template(
@@ -1522,119 +1584,12 @@ def view_timetable():
         selected_batch=selected_batch,
         selected_department=selected_department,
         selected_semester=selected_semester,
-    )
-
-@app.route('/timetable/view', methods=['GET', 'POST'])
-@role_required("student")
-def view_timetable_student():
-    if 'role' not in session or session['role'] not in ['student']:
-        flash('Unauthorized: Students only.', 'danger')
-        return redirect(url_for('home'))
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    batches = []
-    departments = []
-    semesters = []
-    timetable_data = []
-    selected_batch = None
-    selected_department = None
-    selected_semester = None
-
-    try:
-        # Load dropdown data
-        cursor.execute('SELECT * FROM batches')
-        batches = cursor.fetchall()
-        cursor.execute('SELECT * FROM departments')
-        departments = cursor.fetchall()
-        cursor.execute('SELECT * FROM semesters')
-        semesters = cursor.fetchall()
-
-        # --- Student-specific logic ---
-        if session['role'] == 'student':
-            cursor.execute("""
-                SELECT batch_id, department_id
-                FROM students
-                WHERE user_id = %s
-            """, (session['user_id'],))
-            student_data = cursor.fetchone()
-            if not student_data:
-                flash('Student data not found.', 'danger')
-                return redirect(url_for('dashboard'))
-
-            selected_batch = str(student_data['batch_id'])
-            selected_department = str(student_data['department_id'])
-
-        # --- Handle timetable generation ---
-        if request.method == 'POST' and 'generate_table' in request.form:
-            semester_id = request.form['semester_id']
-            selected_semester = semester_id
-
-            # Use student’s locked values (if student)
-            batch_id = selected_batch if session['role'] == 'student' else request.form['batch_id']
-            department_id = selected_department if session['role'] == 'student' else request.form['department_id']
-
-            cursor.execute("""
-                SELECT DISTINCT start_time, end_time
-                FROM timetable
-                WHERE batch_id = %s AND department_id = %s AND semester_id = %s
-                ORDER BY start_time
-            """, (batch_id, department_id, semester_id))
-            time_slots = cursor.fetchall()
-
-            timetable_by_day = {d: {} for d in ['Monday','Tuesday','Wednesday','Thursday','Friday']}
-
-            cursor.execute("""
-                SELECT c.name, t.day, t.start_time, t.end_time,
-                       u.name AS teacher_name, t.class_type, t.id AS entry_id
-                FROM timetable t
-                JOIN courses c ON t.course_id = c.id
-                LEFT JOIN course_allocations ca ON ca.course_id = t.course_id
-                     AND ca.batch_id = t.batch_id
-                     AND ca.department_id = t.department_id
-                     AND ca.semester_id = t.semester_id
-                LEFT JOIN users u ON ca.teacher_id = u.id AND u.role = 'teacher'
-                WHERE t.batch_id = %s AND t.department_id = %s AND t.semester_id = %s
-                ORDER BY t.start_time
-            """, (batch_id, department_id, semester_id))
-
-            for course_name, day, start_time, end_time, teacher_name, class_type, entry_id in cursor.fetchall():
-                time_key = f"{start_time}-{end_time}"
-                timetable_by_day[day][time_key] = {
-                    'course': course_name,
-                    'teacher': teacher_name,
-                    'class_type': class_type,
-                    'entry_id': entry_id,
-                }
-
-            for start_time, end_time in time_slots:
-                time_key = f"{start_time}-{end_time}"
-                row = {
-                    'start_time': start_time,
-                    'end_time': end_time,
-                    'days': {d: timetable_by_day[d].get(time_key) for d in ['Monday','Tuesday','Wednesday','Thursday','Friday']}
-                }
-                timetable_data.append(row)
-
-    except Exception as e:
-        flash(f'Error loading timetable: {str(e)}', 'error')
-
-    finally:
-        conn.close()
-
-    return render_template(
-        'view_timetable_student.html',
-        batches=batches,
-        departments=departments,
-        semesters=semesters,
-        timetable_data=timetable_data,
-        selected_batch=selected_batch,
-        selected_department=selected_department,
-        selected_semester=selected_semester,
+        batch_name=batch_name,
+        department_name=department_name,
         user_role=session.get('role')
     )
 
+    
 
 @app.route('/student/view_attendance', methods=['GET', 'POST'])
 @role_required("student")

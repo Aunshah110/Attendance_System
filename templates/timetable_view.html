@@ -54,6 +54,23 @@
     box-sizing:border-box;
   }
 
+.readonly-field {
+  background: rgba(255, 255, 255, 0.06); /* subtle light card in dark theme */
+  color: var(--cream);
+  border: 2px solid var(--brown-mid);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-weight: 700;
+  width: 100%;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  cursor: not-allowed;
+  user-select: none;
+}
+
+
+
   .card-custom {
     width: 100%;
     max-width: 1100px;
@@ -193,42 +210,59 @@
   <div class="card-custom">
     <h2>Timetable</h2>
 
-    <!-- Filters -->
-    <form method="POST" class="mb-4">
-      <input type="hidden" name="generate_table" value="1">
-      <div class="row g-3">
-        <div class="col-md-4">
-          <label class="form-label">Batch</label>
-          <select class="form-select" name="batch_id" required>
-            <option value="">Select Batch</option>
-            {% for batch in batches %}
-              <option value="{{ batch[0] }}" {% if selected_batch == batch[0]|string %}selected{% endif %}>{{ batch[1] }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Department</label>
-          <select class="form-select" name="department_id" required>
-            <option value="">Select Department</option>
-            {% for department in departments %}
-              <option value="{{ department[0] }}" {% if selected_department == department[0]|string %}selected{% endif %}>{{ department[1] }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Semester</label>
-          <select class="form-select" name="semester_id" required>
-            <option value="">Select Semester</option>
-            {% for semester in semesters %}
-              <option value="{{ semester[0] }}" {% if selected_semester == semester[0]|string %}selected{% endif %}>{{ semester[1] }}</option>
-            {% endfor %}
-          </select>
-        </div>
-      </div>
-      <div class="mt-3 text-center">
-        <button type="submit" class="btn-theme"><span>Generate Timetable</span></button>
-      </div>
-    </form>
+<form method="POST" class="mb-4">
+  <input type="hidden" name="generate_table" value="1">
+
+  <div class="row g-3">
+    <!-- Batch -->
+    <div class="col-md-4">
+      <label class="form-label">Batch</label>
+      {% if user_role == 'student' %}
+        <div class="readonly-field">{{ batch_name or '—' }}</div>
+        <input type="hidden" name="batch_id" value="{{ selected_batch }}">
+      {% else %}
+        <select class="form-select" name="batch_id" required>
+          <option value="">Select Batch</option>
+          {% for batch in batches %}
+            <option value="{{ batch[0] }}" {% if selected_batch == batch[0]|string %}selected{% endif %}>{{ batch[1] }}</option>
+          {% endfor %}
+        </select>
+      {% endif %}
+    </div>
+
+    <!-- Department -->
+    <div class="col-md-4">
+      <label class="form-label">Department</label>
+      {% if user_role == 'student' %}
+        <div class="readonly-field">{{ department_name or '—' }}</div>
+        <input type="hidden" name="department_id" value="{{ selected_department }}">
+      {% else %}
+        <select class="form-select" name="department_id" required>
+          <option value="">Select Department</option>
+          {% for department in departments %}
+            <option value="{{ department[0] }}" {% if selected_department == department[0]|string %}selected{% endif %}>{{ department[1] }}</option>
+          {% endfor %}
+        </select>
+      {% endif %}
+    </div>
+
+    <!-- Semester -->
+    <div class="col-md-4">
+      <label class="form-label">Semester</label>
+      <select class="form-select" name="semester_id" required>
+        <option value="">Select Semester</option>
+        {% for semester in semesters %}
+          <option value="{{ semester[0] }}" {% if selected_semester == semester[0]|string %}selected{% endif %}>{{ semester[1] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="mt-3 text-center">
+    <button type="submit" class="btn-theme"><span>Generate Timetable</span></button>
+  </div>
+</form>
+
 
     <!-- Timetable Table -->
     {% if timetable_data %}
