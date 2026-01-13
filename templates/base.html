@@ -18,13 +18,13 @@
 
     /* Navbar Styling - Increased height */
     .navbar {
-      background: rgba(112, 62, 35, 0.9) !important;
+      background: rgba(84, 38, 13, 0.9) !important;
       backdrop-filter: blur(12px);
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
       border-bottom: 2px solid var(--gold);
       transition: all 0.3s ease-in-out;
       min-height: 80px; /* Increased navbar height */
-      padding: 0.8rem 0; /* Added vertical padding */
+      padding: 0.8rem ; /* Added vertical padding */
     }
 
     .navbar-brand {
@@ -94,6 +94,7 @@
       background: linear-gradient(135deg, var(--brown-light), var(--gold));
       box-shadow: 0 5px 12px rgba(0, 0, 0, 0.4);
       transform: translateY(-2px);
+      color: var(--brown-dark);
     }
 
     /* Mobile Toggle */
@@ -179,9 +180,8 @@
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav ms-auto">
           <li class="nav-item"><a class="nav-link {% if request.endpoint=='home' %}active{% endif %}" href="{{ url_for('home') }}">Home</a></li>
-          <li class="nav-item"><a class="nav-link" href="/teacher">Teacher</a></li>
-          <li class="nav-item"><a class="nav-link" href="/student">Student</a></li>
-          <li class="nav-item"><a class="nav-link" href="/admin">Admin</a></li>
+          <li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
+          <li class="nav-item"><a class="nav-link" href="/about">About</a></li>
         </ul>
         {% if 'user_id' in session %}
           <a href="{{ url_for('logout') }}" class="btn btn-logout">Logout</a>

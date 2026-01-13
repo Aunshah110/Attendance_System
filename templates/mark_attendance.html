@@ -15,7 +15,7 @@
     --transition: all 0.28s cubic-bezier(.2,.9,.3,1);
   }
 
-  /* Background with animated dots */
+  /* Background (STATIC dots) */
   body{
     background: linear-gradient(135deg, var(--brown-light) 0%, var(--cream) 100%);
     min-height:100vh;
@@ -26,18 +26,10 @@
   body::before{
     content:"";
     position:fixed;
-    width:300%;
-    height:300%;
-    top:-100%;
-    left:-100%;
+    inset:0;
     background: radial-gradient(circle, rgba(255,255,255,0.08) 10%, transparent 10.5%);
     background-size: 30px 30px;
-    animation: float 20s infinite linear;
     z-index:-1;
-  }
-  @keyframes float {
-    0% { transform: translate(0,0) rotate(0deg); }
-    100% { transform: translate(-30px,-30px) rotate(360deg); }
   }
 
   /* Navbar fix */
@@ -92,67 +84,175 @@
     gap: clamp(16px, 2vw, 26px);
   }
 
-  /* Buttons */
-  .btn-dashboard{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:12px;
-    padding: 12px 18px;
-    border-radius: 12px;
-    text-decoration:none;
-    font-weight:800;
-    text-transform:uppercase;
-    letter-spacing:0.7px;
-    font-size: 1rem;
-    color: var(--black);
+  /* BUTTON – SMALLER & PROFESSIONAL */
+ .btn-dashboard{
+    width: auto;
+    min-width: 220px;
+    max-width: 260px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    margin: 1.2rem auto 0;
+    font-weight: 800;
+    letter-spacing: 0.6px;
     background: linear-gradient(180deg, var(--yellow), #f6c95a);
     border: 2px solid rgba(0,0,0,0.08);
-    box-shadow:
-      0 6px 18px rgba(122,82,48,0.12),
-      0 2px 6px rgba(0,0,0,0.35),
-      inset 0 -6px 24px rgba(0,0,0,0.06);
     transition: var(--transition);
-    position:relative;
-    overflow:hidden;
   }
-  .btn-dashboard::after{
-    content:"";
-    position:absolute;
-    top:0; left:-100%;
-    width:100%; height:100%;
-    background: linear-gradient(120deg, transparent, rgba(255,255,255,0.3), transparent);
-    transition:0.5s;
-    z-index:1;
-  }
-  .btn-dashboard::before{
-    content:"";
-    position:absolute;
-    left:0; top:0; bottom:0;
-    width:8px;
-    background: linear-gradient(180deg, var(--brown-mid), var(--brown-dark));
-    border-top-left-radius:12px;
-    border-bottom-left-radius:12px;
-    transform:translateX(-6px);
-    transition: var(--transition);
-    z-index:2;
-  }
-  .btn-dashboard span { position:relative; z-index:3; }
-  .btn-dashboard:hover{
-    transform: translateY(-6px) scale(1.03);
-    letter-spacing: 1.5px;
-    box-shadow:
-      0 18px 40px rgba(255,210,74,0.25),
-      0 8px 18px rgba(0,0,0,0.55),
-      inset 0 -8px 28px rgba(0,0,0,0.08);
-  }
-  .btn-dashboard:hover::before{ transform:translateX(0); width:12px; }
-  .btn-dashboard:hover::after{ left:100%; }
 
-  .btn-dashboard:active{
-    transform: translateY(-2px) scale(.995);
-    box-shadow: 0 8px 18px rgba(0,0,0,0.35);
+ .btn-dashboard:hover{
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.35);
   }
+
+/* Modal CSS updates */
+.modal-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.55);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  opacity:0;
+  pointer-events:none;
+  transition:var(--transition);
+  z-index:10000;
+}
+
+.modal-overlay.active{
+  opacity:1;
+  pointer-events:auto;
+}
+
+.modal-card{
+  background:rgba(112,62,35,0.95);
+  border-radius:14px;
+  padding:24px 28px;
+  width:min(420px,90%);
+  text-align:center;
+  box-shadow:0 25px 50px rgba(0,0,0,0.45);
+  animation:scaleIn .3s ease;
+}
+
+.modal-card h3{
+  color:var(--yellow);
+  margin-bottom:10px;
+  font-size: 1.4rem;
+}
+
+.modal-card p{
+  color:var(--cream);
+  font-size:0.95rem;
+  margin-bottom:24px;
+  line-height: 1.4;
+}
+
+/* Single button (OK) styling */
+.single-modal-actions {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.single-modal-actions button {
+  min-width: 120px;
+  height: 44px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  background: linear-gradient(180deg, #a0a0a0, #808080);
+  border: 2px solid rgba(0,0,0,0.15);
+  color: white;
+  cursor: pointer;
+  transition: var(--transition);
+  padding: 0 24px;
+}
+
+.single-modal-actions button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+  background: linear-gradient(180deg, #b0b0b0, #909090);
+}
+
+/* Dual buttons (YES/NO) styling */
+.dual-modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  width: 100%;
+}
+
+.dual-modal-actions button {
+  height: 44px;
+  width: 100%;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(0,0,0,0.15);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+/* YES button */
+.dual-modal-actions button:first-child {
+  background: linear-gradient(180deg, var(--yellow), #f6c95a);
+  color: #000;
+}
+
+/* NO button */
+.dual-modal-actions button:last-child {
+  background: linear-gradient(180deg, #a0a0a0, #808080);
+  color: white;
+}
+
+/* Hover effects for dual buttons */
+.dual-modal-actions button:first-child:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(255, 210, 74, 0.25);
+  background: linear-gradient(180deg, #ffda6e, #f8d05c);
+}
+
+.dual-modal-actions button:last-child:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+  background: linear-gradient(180deg, #b0b0b0, #909090);
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .modal-card {
+    padding: 20px;
+    width: 92%;
+  }
+  
+  .dual-modal-actions {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .dual-modal-actions button {
+    height: 42px;
+  }
+  
+  .single-modal-actions button {
+    height: 42px;
+    min-width: 110px;
+  }
+}
+
+@media (max-width: 360px) {
+  .modal-card h3 {
+    font-size: 1.2rem;
+  }
+  
+  .modal-card p {
+    font-size: 0.9rem;
+  }
+}
 
   /* Form styling inside card */
   .form-label { font-weight:600; color: var(--cream); }
@@ -197,7 +297,7 @@
         <div class="row g-3">
           <div class="col-md-3">
             <label for="batch_id" class="form-label">Batch</label>
-            <select class="form-select" id="batch_id" name="batch_id" required onchange="this.form.submit()">
+            <select class="form-select" id="batch_id" name="batch_id" required z>
               <option value="">-- Select Batch --</option>
               {% for batch in batches %}
                 <option value="{{ batch[0] }}" {% if selected_batch == batch[0]|string %}selected{% endif %}>
@@ -254,7 +354,7 @@
       <!-- Attendance Form -->
       {% if students %}
       <h3 class="text-dark">Students</h3>
-      <form method="POST">
+      <form method="POST" id="attendanceForm">
         <input type="hidden" name="batch_id" value="{{ selected_batch }}">
         <input type="hidden" name="department_id" value="{{ selected_department }}">
         <input type="hidden" name="semester_id" value="{{ selected_semester }}">
@@ -265,6 +365,12 @@
             <label for="date" class="form-label">Date</label>
             <input type="date" class="form-control" id="date" name="date" required>
           </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Day</label>
+            <input type="text" id="day" class="form-control" readonly>
+          </div>
+
           <div class="col-md-3">
             <label for="start_time" class="form-label">Start Time</label>
             <input type="time" class="form-control" id="start_time" name="start_time" required>
@@ -274,11 +380,17 @@
             <input type="time" class="form-control" id="end_time" name="end_time" required>
           </div>
           <div class="col-md-3">
-            <label for="class_type" class="form-label">Class Type</label>
+            <label class="form-label">Class Type</label>
             <select class="form-select" id="class_type" name="class_type" required>
+              <option value="">Select Class Type</option>
               <option value="Theory">Theory</option>
               <option value="Practical">Practical</option>
             </select>
+          </div>  
+
+          <div class="col-md-3" id="classNoWrapper" style="display:none;">
+            <label class="form-label">Class No</label>
+            <select id="class_no" class="form-select"></select>
           </div>
         </div>
 
@@ -329,5 +441,265 @@
     </div>
   </div>
 </div>
+
+<!-- No Class Modal - Single OK button -->
+<div class="modal-overlay" id="noClassModal">
+  <div class="modal-card">
+    <h3>No Class Scheduled</h3>
+    <p>There is no class scheduled for this subject on the selected day.</p>
+    <div class="single-modal-actions">
+      <button id="modalOkBtn">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- Multi Class Confirmation Modal - Dual YES/NO buttons -->
+<div class="modal-overlay" id="multiClassModal">
+  <div class="modal-card">
+    <h3>Attendance Saved</h3>
+    <p>Do you want to mark attendance for other classes?</p>
+    <div class="dual-modal-actions">
+      <button id="yesNextClass">Yes</button>
+      <button id="noReload">No</button>
+    </div>
+  </div>
+</div>
+
+<!-- Flash Message -->
+<div id="flashMessage" style="
+  position: fixed;
+  top: 90px;
+  right: 20px;
+  background: linear-gradient(180deg,#28a745,#1e7e34);
+  color: #fff;
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-weight: 600;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: all .4s ease;
+  z-index: 20000;">
+  Attendance marked successfully ✔
+</div>
+
+
+<script>
+  const batch = document.getElementById("batch_id");
+  const department = document.getElementById("department_id");
+  const semester = document.getElementById("semester_id");
+
+  function resetCourseAndSubmit() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("course_id");   // remove stale course
+    window.location.href = url.pathname + "?" +
+      `batch_id=${batch.value}&department_id=${department.value}&semester_id=${semester.value}`;
+  }
+
+  batch.addEventListener("change", resetCourseAndSubmit);
+  department.addEventListener("change", resetCourseAndSubmit);
+  semester.addEventListener("change", resetCourseAndSubmit);
+
+const dateInput = document.getElementById("date");
+const course = document.getElementById("course_id");
+
+const dayField = document.getElementById("day");
+const classNoSelect = document.getElementById("class_no");
+const classNoWrapper = document.getElementById("classNoWrapper");
+const startTime = document.getElementById("start_time");
+const endTime = document.getElementById("end_time");
+const classType = document.getElementById("class_type");
+
+// Modal elements
+const noClassModal = document.getElementById("noClassModal");
+const modalOkBtn = document.getElementById("modalOkBtn");
+
+let timetableClasses = [];
+
+dateInput.addEventListener("change", fetchTimetable);
+
+function fetchTimetable() {
+  if (!batch.value || !department.value || !semester.value || !course.value || !dateInput.value) return;
+
+  fetch(`/api/timetable_lookup?batch_id=${batch.value}&department_id=${department.value}&semester_id=${semester.value}&course_id=${course.value}&date=${dateInput.value}`)
+    .then(res => res.json())
+    .then(data => {
+
+      if (data.error || data.total_classes === 0) {
+        // Show modal
+        noClassModal.classList.add("active");
+        return;
+      }
+
+      dayField.value = data.day;
+      timetableClasses = data.classes;
+
+      // Multiple classes handling
+      if (data.total_classes === 1) {
+        classNoWrapper.style.display = "none"; // hide dropdown
+        classNoSelect.innerHTML = "";
+        fillClassFields(0);
+      } else {
+        classNoWrapper.style.display = "block"; // show dropdown
+        classNoSelect.innerHTML = "";
+        data.classes.forEach((cls, index) => {
+          const opt = document.createElement("option");
+          opt.value = index;
+          opt.text = `Class ${index + 1}`;
+          classNoSelect.appendChild(opt);
+        });
+        fillClassFields(0);
+      }
+    });
+}
+
+// When class no dropdown changes
+classNoSelect.addEventListener("change", () => {
+  fillClassFields(classNoSelect.value);
+});
+
+function fillClassFields(index) {
+  currentClassIndex = parseInt(index);   // ✅ track active class
+  const cls = timetableClasses[index];
+  if (!cls) return;
+
+  startTime.value = cls.start_time;
+  endTime.value = cls.end_time;
+
+  // Map DB value to readable class type
+  const typeMap = { "Th": "Theory", "Pr": "Practical" };
+  const mappedType = typeMap[cls.class_type] || cls.class_type;
+
+  // Populate class_type dropdown
+  classType.innerHTML = "";
+  ["Theory","Practical"].forEach(val => {
+    const opt = document.createElement("option");
+    opt.value = val;
+    opt.text = val;
+    classType.appendChild(opt);
+  });
+  classType.value = mappedType;
+}
+
+// Reset fields when no class found
+function resetFields() {
+  dayField.value = "";
+  startTime.value = "";
+  endTime.value = "";
+  classType.value = "";
+  classNoSelect.innerHTML = "";
+  classNoWrapper.style.display = "none";
+}
+
+// Modal OK button click
+modalOkBtn.addEventListener("click", () => {
+  noClassModal.classList.remove("active");
+  resetFields();
+
+  // Redirect to same page with selected criteria
+  const url = new URL(window.location.href);
+  const params = new URLSearchParams();
+  if (batch.value) params.set("batch_id", batch.value);
+  if (department.value) params.set("department_id", department.value);
+  if (semester.value) params.set("semester_id", semester.value);
+  if (course.value) params.set("course_id", course.value);
+
+  window.location.href = `${url.pathname}?${params.toString()}`;
+});
+
+
+const attendanceForm = document.getElementById("attendanceForm");
+const multiClassModal = document.getElementById("multiClassModal");
+const yesNextClassBtn = document.getElementById("yesNextClass");
+const noReloadBtn = document.getElementById("noReload");
+const flashMessage = document.getElementById("flashMessage");
+
+let currentClassIndex = 0;
+let modalTimer = null;
+
+/* Always reset page on manual refresh */
+if (performance.navigation.type === 1) {
+  window.location.href = window.location.pathname;
+}
+
+/* Flash helper */
+function showFlash(msg = "Attendance marked successfully ✔") {
+  flashMessage.innerText = msg;
+  flashMessage.style.opacity = "1";
+  flashMessage.style.transform = "translateY(0)";
+
+  setTimeout(() => {
+    flashMessage.style.opacity = "0";
+  }, 2200);
+}
+
+/* Intercept submit when multiple classes exist */
+attendanceForm?.addEventListener("submit", function(e) {
+
+  if (timetableClasses.length <= 1) return; // normal submit
+
+  e.preventDefault();
+
+  const formData = new FormData(attendanceForm);
+
+  fetch(window.location.pathname + window.location.search, {
+    method: "POST",
+    headers: {
+      "X-Requested-With": "XMLHttpRequest"
+    },
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+
+    // Backend rejected
+    if (!data.success) {
+      alert(data.message);   // clear error message
+      return;
+    }
+
+    // ✅ Backend accepted
+    showFlash();
+
+    if (currentClassIndex < timetableClasses.length - 1) {
+      modalTimer = setTimeout(() => {
+        multiClassModal.classList.add("active");
+      }, 2500);
+    } else {
+      setTimeout(() => {
+        window.location.href = window.location.pathname;
+      }, 2500);
+    }
+
+  })
+  .catch(err => {
+    alert("Server error while saving attendance.");
+    console.error(err);
+  });
+
+});
+
+/* YES → Next class */
+yesNextClassBtn.addEventListener("click", () => {
+  multiClassModal.classList.remove("active");
+
+  if (currentClassIndex < timetableClasses.length - 1) {
+    currentClassIndex++;
+    classNoSelect.value = currentClassIndex;
+    fillClassFields(currentClassIndex);
+  } else {
+    showFlash("All classes completed ✔");
+  }
+});
+
+/* NO → Hard reload */
+noReloadBtn.addEventListener("click", () => {
+  window.location.href = window.location.pathname;
+});
+
+</script>
+
+
+
 
 {% endblock %}

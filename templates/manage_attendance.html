@@ -15,7 +15,7 @@
     --transition: all 0.28s cubic-bezier(.2,.9,.3,1);
   }
 
-  /* Background with dynamic dots */
+  /* Background with static dots */
   body{
     background: linear-gradient(135deg, var(--brown-light) 0%, var(--cream) 100%);
     min-height:100vh;
@@ -32,12 +32,8 @@
     left:-100%;
     background: radial-gradient(circle, rgba(255,255,255,0.08) 10%, transparent 10.5%);
     background-size: 30px 30px;
-    animation: float 20s infinite linear;
+    /* animation removed to make static */
     z-index:-1;
-  }
-  @keyframes float {
-    0% { transform: translate(0,0) rotate(0deg); }
-    100% { transform: translate(-30px,-30px) rotate(360deg); }
   }
 
   /* Wrapper */
@@ -52,39 +48,29 @@
 
   /* Card */
   .dashboard-card{
-    width: min(1200px, 98%);
+    width: min(1100px, 98%);
     background: rgba(112, 62, 35, 0.9);
     border-bottom: 2px solid var(--yellow);
     border-radius: 16px;
-    padding: clamp(15px, 3.6vw, 34px);
+    padding: clamp(16px, 3vw, 32px);
     box-shadow: 0 20px 40px rgba(15,10,8,0.35), inset 0 1px 0 rgba(255,255,255,0.03);
     position:relative;
     overflow:hidden;
     backdrop-filter: blur(8px);
   }
-  .dashboard-card::before{
-    content:"";
-    position:absolute;
-    left:0; right:0; top:0;
-    height:6px;
-    background: linear-gradient(90deg, rgba(255,210,120,0.95), rgba(139,115,85,0.95));
-    border-top-left-radius: 16px;
-    border-top-right-radius: 16px;
-    box-shadow: 0 6px 20px rgba(255,210,120,0.06);
-  }
 
   .dashboard-inner{
     display:flex;
     flex-direction:column;
-    gap: clamp(14px, 2.4vw, 20px);
+    gap: 1.5rem;
   }
 
   h1 {
     color: var(--cream);
     text-align: center;
     margin-bottom: 2rem;
-    position: relative;
     font-weight: 700;
+    position: relative;
   }
   
   h1::after {
@@ -102,34 +88,35 @@
   /* Form styling */
   form{
     width:100%;
-    margin-top:1rem;
+    max-width: 520px;
+    margin: 0 auto 2rem auto;
     display:flex;
     flex-direction:column;
-    gap:1.5rem;
+    gap:1.2rem;
   }
   
   .form-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.2rem;
   }
 
   .form-label { 
     font-weight:600; 
     color: var(--cream); 
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.4rem;
     display: block;
   }
 
   .form-select, .form-control {
     border-radius: 10px;
-    padding: 12px 16px;
+    padding: 10px 14px;
     border: 2px solid var(--brown-mid);
     background: var(--cream);
     color: var(--black);
     transition: var(--transition);
     width:100%;
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
   
   .form-select:focus, .form-control:focus {
@@ -138,90 +125,32 @@
     box-shadow: 0 0 0 4px rgba(246, 245, 244, 0.25);
   }
 
-  /* Buttons */
-  .btn-dashboard{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:12px;
-    width:100%;
-    max-width:420px;
-    padding: 12px 18px;
-    border-radius: 12px;
-    text-decoration:none;
-    font-weight:800;
-    text-transform:uppercase;
-    letter-spacing:0.7px;
-    font-size: clamp(0.95rem, 1.8vw, 1.05rem);
-    color: var(--black);
-    background: linear-gradient(180deg, var(--yellow), #f6c95a);
-    border: 2px solid rgba(0,0,0,0.08);
-    box-shadow: 0 6px 18px rgba(122,82,48,0.12),
-                0 2px 6px rgba(0,0,0,0.35),
-                inset 0 -6px 24px rgba(0,0,0,0.06);
-    transition: var(--transition);
-    position:relative;
-    overflow:hidden;
-    cursor: pointer;
-    margin: 1rem auto;
-  }
-  .btn-dashboard::after{
-    content:""; position:absolute; top:0; left:-100%; width:100%; height:100%;
-    background: linear-gradient(120deg, transparent, rgba(255,255,255,0.3), transparent);
-    transition:0.5s; z-index:1;
-  }
-  .btn-dashboard::before{
-    content:""; position:absolute; left:0; top:0; bottom:0; width:8px;
-    background: linear-gradient(180deg, var(--brown-mid), var(--brown-dark));
-    border-top-left-radius:12px; border-bottom-left-radius:12px;
-    transform:translateX(-6px);
-    transition: var(--transition);
-    opacity:0.95; z-index:2;
-  }
-  .btn-dashboard span{ position:relative; z-index:3; }
-  .btn-dashboard:hover{
-    transform: translateY(-6px) scale(1.03);
-    letter-spacing: 1.5px;
-    box-shadow: 0 18px 40px rgba(255,210,74,0.25),
-                0 8px 18px rgba(0,0,0,0.55),
-                inset 0 -8px 28px rgba(0,0,0,0.08);
-  }
-  .btn-dashboard:hover::before{ transform:translateX(0); width:12px; }
-  .btn-dashboard:hover::after{ left:100%; }
+  /* Filter button */
+.btn-dashboard{
+  display: inline-flex;            /* inline-flex keeps it content-based */
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;              /* nice professional padding */
+  min-width: 140px;                /* ensures button not too small */
+  max-width: 200px;                /* limits over-expansion */
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  background: linear-gradient(180deg, var(--yellow), #f6c95a);
+  color: var(--black);
+  border: 1.5px solid rgba(0,0,0,0.1);
+  text-decoration: none;
+  transition: var(--transition);
+  margin: 0 auto;                  /* centers the button */
+}
 
-  /* Search section */
-  .search-section {
-    background: rgba(255, 255, 255, 0.1);
-    padding: 1.5rem;
-    border-radius: 12px;
-    margin-top: 2rem;
-  }
-  
-  .search-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1.5rem;
-  }
+.btn-dashboard:hover{
+  transform: translateY(-3px);
+}
 
-  /* Alert message */
-  .search-alert {
-    background: rgba(255, 210, 74, 0.2);
-    border: 2px solid var(--yellow);
-    color: var(--cream);
-    padding: 1rem;
-    border-radius: 10px;
-    margin-top: 1rem;
-    text-align: center;
-    display: none;
-    animation: fadeIn 0.3s ease;
-  }
-  
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  /* Table styling */
+  /* Table styling (unchanged behavior) */
   table{
     width:100%;
     border-collapse:collapse;
@@ -248,44 +177,21 @@
   tr:hover td{ 
     background: rgba(255,210,74,0.25); 
   }
-  
-  /* Highlight matching cells */
-  .highlight {
-    background-color: var(--yellow) !important;
-    color: var(--black) !important;
-    font-weight: 600;
-    transition: all 0.3s ease;
-  }
-  
+
   /* Action buttons */
   .btn-action {
     padding: 8px 12px;
     border-radius: 8px;
     font-weight: 600;
     text-decoration: none;
-    display: inline-flex;   /* better alignment */
+    display: inline-flex;
     justify-content: center;
     align-items: center;
     transition: var(--transition);
-    font-size: clamp(0.8rem, 1.5vw, 1rem); /* responsive text */
-    min-width: 90px;        /* prevents squishing */
-  } 
-
-/* Ensure buttons don’t break layout on small screens */
-  @media (max-width: 768px) {
-    .btn-action {
-     width: 100%;          /* full width for mobile */
-      margin: 4px 0;        /* spacing between stacked buttons */
-   }
-  
-    td[data-label="Update"], 
-    td[data-label="Delete"] {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;             /* spacing between Update/Delete */
-    }
+    font-size: 0.85rem;
+    min-width: 90px;
   }
-  
+
   .btn-update {
     background: linear-gradient(180deg, #4CAF50, #45a049);
     color: white;
@@ -303,38 +209,47 @@
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
   }
 
+  .no-data-alert{
+  margin-top: 1.5rem;
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: rgba(255, 210, 74, 0.18);
+  border: 1.5px solid var(--yellow);
+  color: var(--brown-dark);
+  font-weight: 600;
+  text-align: center;
+}
+
+
   /* Responsive */
   @media (max-width: 768px) {
-    .form-grid, .search-grid {
+    .form-grid {
       grid-template-columns: 1fr;
     }
-    
+    .btn-dashboard {
+      max-width: 100%;
+    }
     table, thead, tbody, th, td, tr { 
       display: block; 
     }
-    
     thead { 
       display: none; 
     }
-    
     tr { 
       margin-bottom: 14px; 
       border-radius: 10px; 
       overflow: hidden; 
     }
-    
     td { 
       padding: 10px; 
       display: flex; 
       justify-content: space-between; 
     }
-    
     td::before {
       content: attr(data-label);
       font-weight: bold;
       color: var(--brown-dark);
     }
-    
     .btn-action {
       width: 100%;
       margin-bottom: 5px;
@@ -382,10 +297,7 @@
           <div>
             <label for="course_id" class="form-label">Course</label>
             <select class="form-select" id="course_id" name="course_id" disabled required>
-                <option value="">-- Select Course --</option>
-                {% for course in courses %}
-                    <option value="{{ course[0] }}" data-semester="{{ course[2] }}" {% if selected_course == course[0]|string %}selected{% endif %}>{{ course[1] }}</option>
-                {% endfor %}
+              <option value="">-- Select Course --</option>
             </select>
           </div>
         </div>
@@ -454,68 +366,64 @@
           {% endfor %}
         </tbody>
       </table>
+      {% else %}
+        <!-- ⚠️ NO DATA MESSAGE -->
+        <div class="no-data-alert">
+            ⚠️ No records available for the selected Batch, Department and Semester.
+        </div>
+
       {% endif %}
     </div>
   </div>
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const batchSelect = document.getElementById('batch_id');
-        const departmentSelect = document.getElementById('department_id');
-        const semesterSelect = document.getElementById('semester_id');
-        const courseSelect = document.getElementById('course_id');
+  document.addEventListener('DOMContentLoaded', function() {
+    const batchSelect = document.getElementById('batch_id');
+    const departmentSelect = document.getElementById('department_id');
+    const semesterSelect = document.getElementById('semester_id');
+    const courseSelect = document.getElementById('course_id');
 
-        const originalCourseOptions = Array.from(courseSelect.options).filter(option => option.value !== "");
+    function fetchCourses() {
+        const batch_id = batchSelect.value;
+        const department_id = departmentSelect.value;
+        const semester_id = semesterSelect.value;
 
-        function resetCourseOptions() {
-            courseSelect.innerHTML = '';
-            const placeholder = document.createElement('option');
-            placeholder.value = '';
-            placeholder.textContent = '-- Select Course --';
-            courseSelect.appendChild(placeholder);
-            originalCourseOptions.forEach(option => {
-                courseSelect.appendChild(option.cloneNode(true));
-            });
-        }
-
-        function updateCourseOptions() {
-            const batchSelected = batchSelect.value !== "";
-            const departmentSelected = departmentSelect.value !== "";
-            const semesterSelected = semesterSelect.value !== "";
-
-            if (batchSelected && departmentSelected && semesterSelected) {
-                courseSelect.disabled = false;
-                resetCourseOptions();
-
-                const selectedSemester = semesterSelect.value;
-                const options = Array.from(courseSelect.options).filter(option => option.value !== "");
-                let coursesFound = false;
-
-                options.forEach(option => {
-                    if (option.dataset.semester === selectedSemester) {
-                        option.hidden = false;
-                        coursesFound = true;
-                    } else {
-                        option.hidden = true;
-                    }
-                });
-
-                if (!coursesFound) {
-                    courseSelect.innerHTML = '<option value="">No Courses Available</option>';
-                    courseSelect.disabled = true;
+        if(batch_id && department_id && semester_id){
+            fetch('/get_courses', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({batch_id, department_id, semester_id})
+            })
+            .then(response => response.json())
+            .then(data => {
+                courseSelect.innerHTML = '<option value="">-- Select Course --</option>';
+                if(data.length > 0){
+                    data.forEach(course => {
+                        const option = document.createElement('option');
+                        option.value = course.id;
+                        option.textContent = course.name;
+                        courseSelect.appendChild(option);
+                    });
+                    courseSelect.disabled = false;
                 } else {
-                    courseSelect.value = "";
+                    courseSelect.disabled = true;
                 }
-            } else {
+            })
+            .catch(err => {
+                console.error('Error fetching courses:', err);
                 courseSelect.disabled = true;
-                courseSelect.value = "";
-            }
+            });
+        } else {
+            courseSelect.innerHTML = '<option value="">-- Select Course --</option>';
+            courseSelect.disabled = true;
         }
+    }
 
-        batchSelect.addEventListener('change', updateCourseOptions);
-        departmentSelect.addEventListener('change', updateCourseOptions);
-        semesterSelect.addEventListener('change', updateCourseOptions);
+    batchSelect.addEventListener('change', fetchCourses);
+    departmentSelect.addEventListener('change', fetchCourses);
+    semesterSelect.addEventListener('change', fetchCourses);
+
 
         // Enhanced Search Filter Logic with 4 search boxes
         const searchIdName = document.getElementById('search_id_name');

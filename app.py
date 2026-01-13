@@ -1,10 +1,12 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify, make_response, abort
+from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify, make_response, abort, Response
 import psycopg2
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import os
 import pandas as pd
-import re
+import re, csv, io
+from datetime import datetime, date 
+from psycopg2 import IntegrityError
 # from reportlab.lib.pagesizes import letter
 from io import BytesIO
 
@@ -162,6 +164,10 @@ def home():
         return redirect(url_for(f"{session['role']}_dashboard"))
     return render_template('home.html')
 
+@app.route('/about')
+def about():
+    """Team information page"""
+    return render_template('about.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -364,63 +370,115 @@ def import_users():
 @app.route('/get_courses', methods=['POST'])
 def get_courses():
     data = request.get_json()
-    batch_id = data['batch_id']
-    department_id = data['department_id']
-    semester_id = data['semester_id']
+
+    batch_id = data.get('batch_id')
+    department_id = data.get('department_id')
+    semester_id = data.get('semester_id')
+
+    if not batch_id or not department_id or not semester_id:
+        return jsonify([])  # Return empty list if any filter missing
 
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT * FROM courses 
+        SELECT id, name FROM courses 
         WHERE batch_id = %s AND department_id = %s AND semester_id = %s
     ''', (batch_id, department_id, semester_id))
     filtered_courses = cursor.fetchall()
     conn.close()
 
-    # Return filtered courses as JSON
-    return jsonify(filtered_courses)
+    # Convert to JSON-friendly list of objects
+    return jsonify([{"id": c[0], "name": c[1]} for c in filtered_courses])
 
-@app.route('/admin/allocate_courses', methods=['GET', 'POST'])
+
+@app.route('/admin/allocate_course', methods=['GET', 'POST'])
 @role_required('admin')
-def allocate_courses():
+def allocate_course():
     if request.method == 'POST':
-        course_id = request.form['course_id']
-        teacher_id = request.form['teacher_id']
+        course_id = request.form.get('course_id')
+        teacher_id = request.form.get('teacher_id')
+        batch_id = request.form.get('batch_id')
+        department_id = request.form.get('department_id')
+        semester_id = request.form.get('semester_id')
+
+        if not all([course_id, teacher_id, batch_id, department_id, semester_id]):
+            flash("All fields are required.", "danger")
+            return redirect(url_for('allocate_course'))
 
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO course_allocations (course_id, teacher_id)
-            VALUES (%s, %s) RETURNING id
-        ''', (course_id, teacher_id))
-        # Get the inserted ID if needed
-        inserted_id = cursor.fetchone()[0]
-        conn.commit()
-        conn.close()
-        return redirect(url_for('admin_dashboard'))
 
+        try:
+            conn.autocommit = False
+
+            cursor.execute("""
+                INSERT INTO course_allocations
+                (course_id, teacher_id, batch_id, department_id, semester_id)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (course_id, teacher_id, batch_id, department_id, semester_id))
+
+            conn.commit()
+            flash("Course allocated successfully!", "success")
+            return redirect(url_for('admin_dashboard'))
+
+        except IntegrityError:
+            conn.rollback()
+
+            # Fetch already assigned teacher name
+            cursor.execute("""
+                SELECT u.name
+                FROM course_allocations ca
+                JOIN users u ON ca.teacher_id = u.id
+                WHERE ca.course_id = %s
+                  AND ca.batch_id = %s
+                  AND ca.department_id = %s
+                  AND ca.semester_id = %s
+                LIMIT 1
+            """, (course_id, batch_id, department_id, semester_id))
+
+            teacher = cursor.fetchone()
+            teacher_name = teacher[0] if teacher else "another teacher"
+
+            flash(
+                f"This course is already assigned to {teacher_name}.",
+                "warning"
+            )
+            return redirect(url_for('allocate_course'))
+
+        finally:
+            cursor.close()
+            conn.close()
+
+    # ---------- GET ----------
     conn = get_db_connection()
     cursor = conn.cursor()
+
     cursor.execute('SELECT * FROM courses')
     courses = cursor.fetchall()
-    cursor.execute('SELECT * FROM users WHERE role = %s', ('teacher',))
+
+    cursor.execute("SELECT * FROM users WHERE role = 'teacher'")
     teachers = cursor.fetchall()
+
     cursor.execute('SELECT * FROM batches')
     batches = cursor.fetchall()
+
     cursor.execute('SELECT * FROM departments')
     departments = cursor.fetchall()
+
     cursor.execute('SELECT * FROM semesters')
     semesters = cursor.fetchall()
+
     conn.close()
 
     return render_template(
-        'allocate_courses.html',
+        'allocate_course.html',
         courses=courses,
         teachers=teachers,
         batches=batches,
         departments=departments,
         semesters=semesters
     )
+
 
 
 @app.route('/admin/view_students', methods=['GET', 'POST'])
@@ -494,20 +552,55 @@ def update_student(student_id):
         email = request.form['email']
         batch_id = request.form['batch_id']
         department_id = request.form['department_id']
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+
+        # Password validation (ONLY if provided)
+        if new_password:
+            if len(new_password) < 8:
+                flash('Password must be at least 8 characters long!', 'error')
+                return redirect(url_for('update_student', student_id=student_id))
+            if new_password != confirm_password:
+                flash('Passwords do not match!', 'error')
+                return redirect(url_for('update_student', student_id=student_id))
 
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('''
-            UPDATE users
-            SET name = %s, email = %s, batch_id = %s, department_id = %s
-            WHERE id = %s
-        ''', (name, email, batch_id, department_id, student_id))
-        conn.commit()
-        conn.close()
-        flash('Student updated successfully!', 'success')
-        return redirect(url_for('view_students'))
 
-    # Fetch the student's current data
+        try:
+            if new_password:
+                hashed_password = generate_password_hash(new_password)
+                cursor.execute('''
+                    UPDATE users
+                    SET name = %s,
+                        email = %s,
+                        batch_id = %s,
+                        department_id = %s,
+                        password = %s
+                    WHERE id = %s
+                ''', (name, email, batch_id, department_id, hashed_password, student_id))
+            else:
+                cursor.execute('''
+                    UPDATE users
+                    SET name = %s,
+                        email = %s,
+                        batch_id = %s,
+                        department_id = %s
+                    WHERE id = %s
+                ''', (name, email, batch_id, department_id, student_id))
+
+            conn.commit()
+            flash('Student updated successfully!', 'success')
+            return redirect(url_for('view_students'))
+
+        except Exception as e:
+            conn.rollback()
+            flash('Error updating student!', 'error')
+            return redirect(url_for('update_student', student_id=student_id))
+        finally:
+            conn.close()
+
+    # GET DATA
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM users WHERE id = %s', (student_id,))
@@ -518,31 +611,58 @@ def update_student(student_id):
     departments = cursor.fetchall()
     conn.close()
 
-    return render_template('update_student.html', student=student, batches=batches, departments=departments)
+    return render_template(
+        'update_student.html',
+        student=student,
+        batches=batches,
+        departments=departments
+    )
 
+
+from flask import redirect, url_for, flash
 
 @app.route('/admin/delete_student/<student_id>', methods=['POST'])
 @role_required("admin")
 def delete_student(student_id):
+    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('DELETE FROM users WHERE id = %s', (student_id,))
+
+        # Delete dependent records first
+        cursor.execute(
+            "DELETE FROM attendance WHERE student_id = %s",
+            (student_id,)
+        )
+
+        # Delete student
+        cursor.execute(
+            "DELETE FROM users WHERE id = %s",
+            (student_id,)
+        )
         conn.commit()
-        conn.close()
-        return jsonify({'success': True, 'message': 'Student deleted successfully!'})
+
+        flash("Student deleted successfully!", "success")
+
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+        if conn:
+            conn.rollback()
+        flash("Failed to delete student.", "danger")
+        app.logger.exception(e)
+
+    finally:
+        if conn:
+            conn.close()
+
+    return redirect(url_for('view_students'))
+    
 
 from werkzeug.utils import secure_filename
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
-import io
-import csv
 from slugify import slugify
-from flask import Response, flash, redirect, url_for, session
 
 @app.route('/admin/generate_reports', methods=['GET', 'POST'])
 @role_required("admin")
@@ -671,157 +791,192 @@ def teacher_generate_reports():
     if not teacher_id:
         flash('Please login first', 'error')
         return redirect(url_for('login'))
-    
-    # Fetch dropdown options - PostgreSQL connection
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
-        # Get batches
+        # -------------------------------
+        # Load dropdown master data
+        # -------------------------------
         cursor.execute('SELECT * FROM batches')
         batches = cursor.fetchall()
-        
-        # Get departments
+
         cursor.execute('SELECT * FROM departments')
         departments = cursor.fetchall()
-        
-        # Get semesters
+
         cursor.execute('SELECT * FROM semesters')
         semesters = cursor.fetchall()
-        
-        # Store in session for later use
-        session['batches'] = batches
-        session['departments'] = departments
-        session['semesters'] = semesters
 
-        if request.method == 'POST':
-            # Check if this is an AJAX request for course filtering
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                batch_id = request.form.get('batch_id')
-                department_id = request.form.get('department_id')
-                semester_id = request.form.get('semester_id')
-                
-                # Get courses allocated to this teacher for the selected criteria
-                cursor.execute('''
-                    SELECT DISTINCT c.id, c.name 
-                    FROM course_allocations ca
-                    JOIN courses c ON ca.course_id = c.id
-                    JOIN timetable t ON c.id = t.course_id
-                    WHERE ca.teacher_id = %s
-                    AND t.batch_id = %s
-                    AND c.department_id = %s
-                    AND c.semester_id = %s
-                ''', (teacher_id, batch_id, department_id, semester_id))
-                courses = cursor.fetchall()
-                
-                return jsonify(courses)
-            
-            # Check if this is an export request
-            if 'export_csv' in request.form or 'export_pdf' in request.form:
-                # Get the filter parameters from session
-                batch_id = session.get('report_batch_id')
-                department_id = session.get('report_department_id')
-                semester_id = session.get('report_semester_id')
-                course_id = session.get('report_course_id')
-                
-                if not all([batch_id, department_id, semester_id, course_id]):
-                    flash('Please generate a report first before exporting', 'error')
-                    return redirect(url_for('teacher_generate_reports'))
-            else:
-                # Regular report generation
-                batch_id = request.form['batch_id']
-                department_id = request.form['department_id']
-                semester_id = request.form['semester_id']
-                course_id = request.form['course_id']
-                
-                # Store filters in session for export
-                session['report_batch_id'] = batch_id
-                session['report_department_id'] = department_id
-                session['report_semester_id'] = semester_id
-                session['report_course_id'] = course_id
-            
-            # Verify teacher is allocated to this course
+        # -------------------------------
+        # Read selected filters from query params (GET)
+        # -------------------------------
+        selected_batch = request.args.get('batch_id')
+        selected_department = request.args.get('department_id')
+        selected_semester = request.args.get('semester_id')
+
+        courses = []
+
+        # -------------------------------
+        # Load courses ONLY if all filters selected
+        # -------------------------------
+        if selected_batch and selected_department and selected_semester:
             cursor.execute('''
-                SELECT 1 FROM course_allocations 
-                WHERE teacher_id = %s AND course_id = %s
-            ''', (teacher_id, course_id))
-            if not cursor.fetchone():
-                flash('You are not allocated to this course!', 'error')
+                SELECT DISTINCT c.id, c.name
+                FROM course_allocations ca
+                JOIN courses c ON ca.course_id = c.id
+                WHERE ca.teacher_id = %s
+                  AND ca.batch_id = %s
+                  AND ca.department_id = %s
+                  AND ca.semester_id = %s
+                ORDER BY c.name
+            ''', (
+                teacher_id,
+                selected_batch,
+                selected_department,
+                selected_semester
+            ))
+            courses = cursor.fetchall()
+
+        # -------------------------------
+        # Initial GET page load
+        # -------------------------------
+        if request.method == 'GET':
+            return render_template(
+                'teacher_generate_reports.html',
+                batches=batches,
+                departments=departments,
+                semesters=semesters,
+                courses=courses,
+                selected_batch=selected_batch,
+                selected_department=selected_department,
+                selected_semester=selected_semester,
+                report_data=None
+            )
+
+        # -------------------------------
+        # POST: Export buttons
+        # -------------------------------
+        if 'export_csv' in request.form or 'export_pdf' in request.form:
+            batch_id = session.get('report_batch_id')
+            department_id = session.get('report_department_id')
+            semester_id = session.get('report_semester_id')
+            course_id = session.get('report_course_id')
+
+            if not all([batch_id, department_id, semester_id, course_id]):
+                flash('Please generate a report first before exporting', 'error')
                 return redirect(url_for('teacher_generate_reports'))
-            
-            # Get names for report title
-            cursor.execute('SELECT name FROM batches WHERE id = %s', (batch_id,))
-            batch_result = cursor.fetchone()
-            batch_name = batch_result[0] if batch_result else "Unknown Batch"
-            
-            cursor.execute('SELECT name FROM departments WHERE id = %s', (department_id,))
-            dept_result = cursor.fetchone()
-            dept_name = dept_result[0] if dept_result else "Unknown Department"
-            
-            cursor.execute('SELECT name FROM semesters WHERE id = %s', (semester_id,))
-            semester_result = cursor.fetchone()
-            semester_name = semester_result[0] if semester_result else "Unknown Semester"
-            
-            cursor.execute('SELECT name FROM courses WHERE id = %s', (course_id,))
-            course_result = cursor.fetchone()
-            course_name = course_result[0] if course_result else "Unknown Course"
-            
-            # Get attendance data - PostgreSQL compatible
-            cursor.execute('''
+
+        # -------------------------------
+        # POST: Generate report
+        # -------------------------------
+        else:
+            batch_id = request.form.get('batch_id')
+            department_id = request.form.get('department_id')
+            semester_id = request.form.get('semester_id')
+            course_id = request.form.get('course_id')
+
+            if not all([batch_id, department_id, semester_id, course_id]):
+                flash('All fields are required!', 'error')
+                return redirect(url_for('teacher_generate_reports'))
+
+            # Store filters for export
+            session['report_batch_id'] = batch_id
+            session['report_department_id'] = department_id
+            session['report_semester_id'] = semester_id
+            session['report_course_id'] = course_id
+
+        # -------------------------------
+        # Security: Verify teacher allocation
+        # -------------------------------
+        cursor.execute('''
+            SELECT 1 FROM course_allocations 
+            WHERE teacher_id = %s AND course_id = %s
+        ''', (teacher_id, course_id))
+
+        if not cursor.fetchone():
+            flash('You are not allocated to this course!', 'error')
+            return redirect(url_for('teacher_generate_reports'))
+
+        # -------------------------------
+        # Fetch report titles
+        # -------------------------------
+        cursor.execute('SELECT name FROM batches WHERE id = %s', (batch_id,))
+        batch_row = cursor.fetchone()
+        batch_name = batch_row[0] if batch_row else "Unknown Batch"
+
+        cursor.execute('SELECT name FROM departments WHERE id = %s', (department_id,))
+        dept_row = cursor.fetchone()
+        dept_name = dept_row[0] if dept_row else "Unknown Department"
+
+        cursor.execute('SELECT name FROM semesters WHERE id = %s', (semester_id,))
+        sem_row = cursor.fetchone()
+        semester_name = sem_row[0] if sem_row else "Unknown Semester"
+
+        cursor.execute('SELECT name FROM courses WHERE id = %s', (course_id,))
+        course_row = cursor.fetchone()
+        course_name = course_row[0] if course_row else "Unknown Course"
+
+        # -------------------------------
+        # Fetch attendance report data
+        # -------------------------------
+        cursor.execute('''
             SELECT u.id, u.name, 
-            COUNT(a.id) AS total_days,
-            COALESCE(SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END), 0) AS present_days,
-            CASE 
-               WHEN COUNT(a.id) = 0 THEN 0.00
-               ELSE ROUND(SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) * 100.0 / COUNT(a.id), 2)
-            END AS percentage
+                   COUNT(a.id) AS total_days,
+                   COALESCE(SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END), 0) AS present_days,
+                   CASE 
+                       WHEN COUNT(a.id) = 0 THEN 0.00
+                       ELSE ROUND(
+                           SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) * 100.0 / COUNT(a.id), 2
+                       )
+                   END AS percentage
             FROM users u
             LEFT JOIN attendance a ON u.id = a.student_id
             WHERE u.role = 'student' 
-            AND u.batch_id = %s 
-            AND u.department_id = %s
-            AND a.course_id = %s
+              AND u.batch_id = %s 
+              AND u.department_id = %s
+              AND a.course_id = %s
             GROUP BY u.id, u.name
             ORDER BY CAST(SUBSTRING(u.id FROM '(\\d+)$') AS INTEGER)
-            ''', (batch_id, department_id, course_id))
-            report_data = cursor.fetchall()
-            
-            if 'export_csv' in request.form:
-                title = f"Reports for {batch_name}, Department {dept_name}, {semester_name}, Course {course_name}"
-                return export_csv(report_data, title)
-            elif 'export_pdf' in request.form:
-                title = f"Reports for {batch_name}, Department {dept_name}, {semester_name}, Course {course_name}"
-                return export_pdf(report_data, title)
-            
-            return render_template('teacher_generate_reports.html', 
-                                report_data=report_data,
-                                batch_name=batch_name,
-                                dept_name=dept_name,
-                                semester_name=semester_name,
-                                course_name=course_name,
-                                batches=batches,
-                                departments=departments,
-                                semesters=semesters)
-        
-        # Get initial courses for the teacher (empty selection)
-        cursor.execute('''
-            SELECT c.id, c.name 
-            FROM course_allocations ca
-            JOIN courses c ON ca.course_id = c.id
-            WHERE ca.teacher_id = %s
-            LIMIT 0
-        ''', (teacher_id,))
-        courses = cursor.fetchall()
-        
-        return render_template('teacher_generate_reports.html', 
-                            batches=batches,
-                            departments=departments,
-                            semesters=semesters,
-                            courses=courses)
-    
+        ''', (batch_id, department_id, course_id))
+
+        report_data = cursor.fetchall()
+
+        title = f"Reports for {batch_name}, Department {dept_name}, {semester_name}, Course {course_name}"
+
+        # -------------------------------
+        # Export actions
+        # -------------------------------
+        if 'export_csv' in request.form:
+            return export_csv(report_data, title)
+
+        if 'export_pdf' in request.form:
+            return export_pdf(report_data, title)
+
+        # -------------------------------
+        # Render normal report page
+        # -------------------------------
+        return render_template(
+            'teacher_generate_reports.html',
+            report_data=report_data,
+            batch_name=batch_name,
+            dept_name=dept_name,
+            semester_name=semester_name,
+            course_name=course_name,
+            batches=batches,
+            departments=departments,
+            semesters=semesters
+        )
+
     except Exception as e:
         flash(f'Error: {str(e)}', 'error')
-        return render_template('teacher_generate_reports.html')
+        return render_template(
+            'teacher_generate_reports.html',
+            batches=batches,
+            departments=departments,
+            semesters=semesters
+        )
+
     finally:
         conn.close()
 
@@ -1053,7 +1208,7 @@ def manage_courses():
                            selected_semester=selected_semester)
 
 
-@app.route('/admin/delete_course/<int:course_id>')
+@app.route('/admin/delete_course/<int:course_id>', methods=['POST'])
 def delete_course(course_id):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -1084,130 +1239,187 @@ def delete_course(course_id):
     return redirect(url_for('manage_courses'))
 
 
-@app.route('/admin/allocate_course', methods=['GET', 'POST'])
-@role_required("admin")
-def allocate_course():
-    if request.method == 'POST':
-        course_id = request.form['course_id']
-        teacher_id = request.form['teacher_id']
-        batch_id = request.form['batch_id']
-        department_id = request.form['department_id']
-        semester_id = request.form['semester_id']
-        start_date = request.form['start_date']
-        end_date = request.form['end_date']
-
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO course_allocations 
-            (course_id, teacher_id, batch_id, department_id, semester_id, start_date, end_date)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        ''', (course_id, teacher_id, batch_id, department_id, semester_id, start_date, end_date))
-        conn.commit()
-        conn.close()
-        flash('Course allocated successfully with dates!', 'success')
-        return redirect(url_for('allocate_course'))
-
-    # Fetch data for dropdowns
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM courses')
-    courses = cursor.fetchall()
-    cursor.execute('SELECT * FROM users WHERE role = %s', ('teacher',))
-    teachers = cursor.fetchall()
-    cursor.execute('SELECT * FROM batches')
-    batches = cursor.fetchall()
-    cursor.execute('SELECT * FROM departments')
-    departments = cursor.fetchall()
-    cursor.execute('SELECT * FROM semesters')
-    semesters = cursor.fetchall()
-    conn.close()
-
-    return render_template('allocate_course.html', 
-                         courses=courses, 
-                         teachers=teachers, 
-                         batches=batches,
-                         departments=departments,
-                         semesters=semesters)
-
-
 @app.route('/teacher/mark_attendance', methods=['GET', 'POST'])
 @role_required("teacher")
 def mark_attendance():
     teacher_id = session.get('user_id')
-    conn = get_db_connection()  # Changed to PostgreSQL connection
+    conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Fetch static dropdown options
-    cursor.execute('SELECT * FROM batches')
+    # -------------------------------
+    # Static dropdowns
+    # -------------------------------
+    cursor.execute('SELECT id, name FROM batches ORDER BY name')
     batches = cursor.fetchall()
-    cursor.execute('SELECT * FROM departments')
+
+    cursor.execute('SELECT id, name FROM departments ORDER BY name')
     departments = cursor.fetchall()
-    cursor.execute('SELECT * FROM semesters')
+
+    cursor.execute('SELECT id, name FROM semesters ORDER BY name')
     semesters = cursor.fetchall()
 
-    # Handle POST request
+    # -------------------------------
+    # POST → Mark Attendance
+    # -------------------------------
     if request.method == 'POST':
         try:
-            batch_id = request.form['batch_id']
-            department_id = request.form['department_id']
-            semester_id = request.form['semester_id']
-            course_id = request.form['course_id']
-            date = request.form['date']
-            start_time = request.form['start_time']
-            end_time = request.form['end_time']
-            class_type = request.form['class_type']
+            batch_id = request.form.get('batch_id')
+            department_id = request.form.get('department_id')
+            semester_id = request.form.get('semester_id')
+            course_id = request.form.get('course_id')
+            attendance_date = request.form.get('date')
+            start_time = request.form.get('start_time')
+            end_time = request.form.get('end_time')
+            class_type = request.form.get('class_type')
 
-            # Process attendance for each student
+            # 🔐 SECURITY: Validate course ownership again
+            cursor.execute("""
+                SELECT 1
+                FROM course_allocations ca
+                JOIN courses c ON c.id = ca.course_id
+                WHERE ca.teacher_id = %s
+                  AND ca.course_id = %s
+                  AND ca.batch_id = %s
+                  AND c.department_id = %s
+                  AND c.semester_id = %s
+            """, (teacher_id, course_id, batch_id, department_id, semester_id))
+
+            if not cursor.fetchone():
+                raise Exception("Invalid course selection or unauthorized access.")
+            
+            if date.fromisoformat(attendance_date) > date.today():
+                msg = "Attendance cannot be marked for future dates."
+            
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return jsonify(success=False, message=msg), 400
+            
+                raise Exception(msg)
+
+            if not any(k.startswith('attendance_') for k in request.form):
+                raise Exception("No attendance data submitted.")
+
+            # DUPLICATE ATTENDANCE CHECK
+            cursor.execute("""
+                SELECT 1
+                FROM attendance
+                WHERE batch_id = %s
+                  AND department_id = %s
+                  AND semester_id = %s
+                  AND course_id = %s
+                  AND date = %s
+                  AND start_time = %s
+                  AND end_time = %s
+                LIMIT 1
+            """, (
+                batch_id,
+                department_id,
+                semester_id,
+                course_id,
+                attendance_date,
+                start_time,
+                end_time
+            ))
+
+            if cursor.fetchone():
+                msg = "Attendance for the selected class and date has already been marked."
+
+                # If request came from fetch (AJAX)
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return jsonify(success=False, message=msg), 400
+
+                flash(msg, "warning")
+                conn.close()
+                return redirect(url_for('mark_attendance'))
+
+
+            # -------------------------------
+            # ✅ Insert attendance only if not duplicate
+            # -------------------------------
             for key, value in request.form.items():
                 if key.startswith('attendance_'):
                     student_id = key.split('_')[1]
                     status = value
-                    cursor.execute('''
-                        INSERT INTO attendance 
-                        (student_id, course_id, batch_id, department_id, semester_id, date, start_time, end_time, status, class_type)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    ''', (student_id, course_id, batch_id, department_id, semester_id, date, start_time, end_time, status, class_type))
+
+                    cursor.execute("""
+                        INSERT INTO attendance
+                        (student_id, course_id, batch_id, department_id, semester_id,
+                         date, start_time, end_time, status, class_type)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    """, (
+                        student_id,
+                        course_id,
+                        batch_id,
+                        department_id,
+                        semester_id,
+                        attendance_date,
+                        start_time,
+                        end_time,
+                        status,
+                        class_type
+                    ))
 
             conn.commit()
-            flash('Attendance marked successfully!', 'success')
+            # AJAX success response
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify(success=True), 200
+
+            flash("Attendance marked successfully!", "success")
+
         except Exception as e:
             conn.rollback()
-            flash(f'Error: {str(e)}', 'error')
+            flash(str(e), "error")
+
         finally:
             conn.close()
+
         return redirect(url_for('mark_attendance'))
 
-    # Handle GET request
+    # -------------------------------
+    # GET → Selection flow
+    # -------------------------------
     batch_id = request.args.get('batch_id')
     department_id = request.args.get('department_id')
     semester_id = request.args.get('semester_id')
+    course_id = request.args.get('course_id')
+
     courses = []
     students = []
 
+    # Load courses ONLY if base filters are selected
     if batch_id and department_id and semester_id:
-    # Fetch courses allocated to this teacher for the selected batch, dept, semester
-        cursor.execute('''
-            SELECT c.id, c.name 
-            FROM courses c 
-            JOIN course_allocations ca ON c.id = ca.course_id
-            WHERE ca.batch_id = %s AND c.department_id = %s 
-            AND c.semester_id = %s AND ca.teacher_id = %s
-        ''', (batch_id, department_id, semester_id, teacher_id))
-    courses = cursor.fetchall()
+        cursor.execute("""
+            SELECT c.id, c.name
+            FROM courses c
+            JOIN course_allocations ca ON ca.course_id = c.id
+            WHERE ca.teacher_id = %s
+              AND ca.batch_id = %s
+              AND c.department_id = %s
+              AND c.semester_id = %s
+            ORDER BY c.name
+        """, (teacher_id, batch_id, department_id, semester_id))
 
-    # Fetch students if course selected
-    course_id = request.args.get('course_id')
+        courses = cursor.fetchall()
+
+        # 🧹 If course_id is not valid anymore → reset it
+        valid_course_ids = {str(c[0]) for c in courses}
+        if course_id not in valid_course_ids:
+            course_id = None
+
+    # Load students ONLY if valid course is selected
     if course_id:
-        cursor.execute('''
-            SELECT id, name 
-            FROM users 
-            WHERE role = 'student' AND batch_id = %s AND department_id = %s
+        cursor.execute("""
+            SELECT id, name
+            FROM users
+            WHERE role = 'student'
+              AND batch_id = %s
+              AND department_id = %s
             ORDER BY CAST(SUBSTRING(id FROM '(\\d+)$') AS INTEGER)
-        ''', (batch_id, department_id))
+        """, (batch_id, department_id))
+
         students = cursor.fetchall()
 
     conn.close()
+
     return render_template(
         'mark_attendance.html',
         batches=batches,
@@ -1218,12 +1430,61 @@ def mark_attendance():
         selected_batch=batch_id,
         selected_department=department_id,
         selected_semester=semester_id,
-        selected_course=request.args.get('course_id')
+        selected_course=course_id
     )
 
-    
+@app.route('/api/timetable_lookup')
+@role_required("teacher")
+def timetable_lookup():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        batch_id = request.args.get("batch_id")
+        department_id = request.args.get("department_id")
+        semester_id = request.args.get("semester_id")
+        course_id = request.args.get("course_id")
+        date_str = request.args.get("date")
+
+        if not all([batch_id, department_id, semester_id, course_id, date_str]):
+            return jsonify({"error": "Missing parameters"}), 400
+
+        # Convert date → weekday
+        day_name = datetime.strptime(date_str, "%Y-%m-%d").strftime("%A")
+
+        cursor.execute("""
+            SELECT id, start_time, end_time, class_type
+            FROM timetable
+            WHERE batch_id = %s
+              AND department_id = %s
+              AND semester_id = %s
+              AND course_id = %s
+              AND day = %s
+            ORDER BY start_time
+        """, (batch_id, department_id, semester_id, course_id, day_name))
+
+        rows = cursor.fetchall()
+
+        classes = [
+            {
+                "entry_id": r[0],
+                "start_time": r[1],
+                "end_time": r[2],
+                "class_type": r[3]
+            }
+            for r in rows
+        ]
+
+        return jsonify({
+            "day": day_name,
+            "total_classes": len(classes),
+            "classes": classes
+        })
+
+    finally:
+        conn.close()
+
 # Add this near the top of your Flask application file
-from datetime import datetime
 
 def convert_to_12h(time_str):
     try:
@@ -1679,31 +1940,88 @@ def view_attendance():
 @role_required("admin")
 def manage_batches():
     if request.method == 'POST':
+
+        # ADD BATCH
         if 'add_batch' in request.form:
             batch_name = request.form['batch_name']
             conn = get_db_connection()
             cursor = conn.cursor()
-            cursor.execute('INSERT INTO batches (name) VALUES (%s)', (batch_name,))
+            cursor.execute(
+                'INSERT INTO batches (name) VALUES (%s)',
+                (batch_name,)
+            )
             conn.commit()
             conn.close()
             flash('Batch added successfully!', 'success')
+
+        # DELETE BATCH (WITH FK HANDLING)
         elif 'delete_batch' in request.form:
             batch_id = request.form['batch_id']
             conn = get_db_connection()
             cursor = conn.cursor()
-            cursor.execute('DELETE FROM batches WHERE id = %s', (batch_id,))
-            conn.commit()
-            conn.close()
-            flash('Batch deleted successfully!', 'success')
+
+            try:
+                # Delete attendance linked to courses of this batch
+                cursor.execute("""
+                    DELETE FROM attendance
+                    WHERE course_id IN (
+                        SELECT id FROM courses WHERE batch_id = %s
+                    )
+                """, (batch_id,))
+
+                # Delete timetable entries linked to courses of this batch
+                cursor.execute("""
+                    DELETE FROM timetable
+                    WHERE course_id IN (
+                        SELECT id FROM courses WHERE batch_id = %s
+                    )
+                """, (batch_id,))
+
+                # Delete course allocations linked to courses of this batch
+                cursor.execute("""
+                    DELETE FROM course_allocations
+                    WHERE course_id IN (
+                        SELECT id FROM courses WHERE batch_id = %s
+                    )
+                """, (batch_id,))
+
+                # Delete courses of this batch
+                cursor.execute(
+                    'DELETE FROM courses WHERE batch_id = %s',
+                    (batch_id,)
+                )
+
+                # Finally delete the batch
+                cursor.execute(
+                    'DELETE FROM batches WHERE id = %s',
+                    (batch_id,)
+                )
+
+                conn.commit()
+                flash(
+                    'Batch deleted successfully!',
+                    'success'
+                )
+            except Exception as e:
+                conn.rollback()
+                flash(
+                    f'Error deleting batch: {str(e)}',
+                    'error'
+                )
+            finally:
+                conn.close()
+
         return redirect(url_for('manage_batches'))
 
-    # Fetch all batches
+    # FETCH BATCHES
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM batches')
     batches = cursor.fetchall()
     conn.close()
+
     return render_template('manage_batches.html', batches=batches)
+
 
 # Manage Departments
 @app.route('/admin/manage_departments', methods=['GET', 'POST'])
@@ -1722,10 +2040,55 @@ def manage_departments():
             department_id = request.form['department_id']
             conn = get_db_connection()
             cursor = conn.cursor()
-            cursor.execute('DELETE FROM departments WHERE id = %s', (department_id,))
-            conn.commit()
-            conn.close()
-            flash('Department deleted successfully!', 'success')
+
+            try:
+                # Delete attendance linked to courses of this batch
+                cursor.execute("""
+                    DELETE FROM attendance
+                    WHERE course_id IN (
+                        SELECT id FROM courses WHERE department_id = %s
+                    )
+                """, (department_id,))
+
+                # Delete timetable entries linked to courses of this batch
+                cursor.execute("""
+                    DELETE FROM timetable
+                    WHERE course_id IN (
+                        SELECT id FROM courses WHERE department_id = %s
+                    )
+                """, (department_id,))
+
+                # Delete course allocations linked to courses of this batch
+                cursor.execute("""
+                    DELETE FROM course_allocations
+                    WHERE course_id IN (
+                        SELECT id FROM courses WHERE department_id = %s
+                    )
+                """, (department_id,))
+
+                # Delete courses of this batch
+                cursor.execute(
+                    'DELETE FROM courses WHERE department_id = %s',
+                    (department_id,))
+
+                # Finally delete the batch
+                cursor.execute(
+                    'DELETE FROM departments WHERE id = %s',
+                    (department_id,))
+                
+
+                conn.commit()
+                flash('Department deleted successfully!', 'success')
+
+            except Exception as e:
+                conn.rollback()
+                flash(
+                    f'Error deleting Department: {str(e)}',
+                    'error'
+                )
+            finally:
+                conn.close()
+
         return redirect(url_for('manage_departments'))
 
     # Fetch all departments
@@ -1749,10 +2112,30 @@ def manage_teachers():
             teacher_id = request.form['teacher_id']
             conn = get_db_connection()
             cursor = conn.cursor()
-            cursor.execute('DELETE FROM users WHERE id = %s AND role = %s', (teacher_id, "teacher"))
-            conn.commit()
-            conn.close()
-            flash('Teacher deleted successfully!', 'success')
+
+            try:
+                
+                cursor.execute("""
+                    DELETE FROM course_allocations
+                    WHERE teacher_id=%s
+                """, (teacher_id,))
+
+                cursor.execute(
+                    'DELETE FROM users WHERE id = %s AND role=%s',
+                    (teacher_id,"teacher")
+                )
+
+                conn.commit()
+                flash('Teacher deleted successfully!', 'success')
+            except Exception as e:
+                conn.rollback()
+                flash(
+                    f'Error deleting Teacher: {str(e)}',
+                    'error'
+                )
+            finally:
+                conn.close()
+
         return redirect(url_for('manage_teachers'))
 
     # Fetch all teachers
@@ -2089,13 +2472,49 @@ def download_timetable_pdf():
     cursor = conn.cursor()
 
     try:
-        # Get names
+        if not batch_id or not department_id or not semester_id:
+            # assuming you store logged-in user id in session
+            teacher_id = session.get('user_id')
+
+            if teacher_id:
+                cursor.execute("""
+                    SELECT DISTINCT 
+                        t.batch_id, 
+                        t.department_id, 
+                        t.semester_id
+                    FROM timetable t
+                    JOIN course_allocations ca 
+                        ON ca.course_id = t.course_id
+                        AND ca.batch_id = t.batch_id
+                        AND ca.department_id = t.department_id
+                        AND ca.semester_id = t.semester_id
+                    WHERE ca.teacher_id = %s
+                    LIMIT 1
+                """, (teacher_id,))
+
+                row = cursor.fetchone()
+                if row:
+                    batch_id, department_id, semester_id = row
+
+        # Get names safely
         cursor.execute('SELECT name FROM batches WHERE id = %s', (batch_id,))
-        batch_name = cursor.fetchone()[0]
+        row = cursor.fetchone()
+        if not row:
+            raise ValueError("Invalid batch_id")
+        batch_name = row[0]
+
         cursor.execute('SELECT name FROM departments WHERE id = %s', (department_id,))
-        department_name = cursor.fetchone()[0]
+        row = cursor.fetchone()
+        if not row:
+            raise ValueError("Invalid department_id")
+        department_name = row[0]
+
         cursor.execute('SELECT name FROM semesters WHERE id = %s', (semester_id,))
-        semester_name = cursor.fetchone()[0]
+        row = cursor.fetchone()
+        if not row:
+            raise ValueError("Invalid semester_id")
+        semester_name = row[0]
+
 
         # Get all timetable slots - FIXED: Added start_time to SELECT for ORDER BY
         cursor.execute('''
@@ -2174,5 +2593,5 @@ def convert_to_12h(time_str):
 
 if __name__ == '__main__':
     #init_db()
-    app.run(debug=True)
-    # app.run(host="0.0.0.0", port=5000, debug=True)
+    #app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)

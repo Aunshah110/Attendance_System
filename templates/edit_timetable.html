@@ -15,7 +15,6 @@
     --transition: all 0.28s cubic-bezier(.2,.9,.3,1);
   }
 
-  /* Background with dynamic dots */
   body{
     background: linear-gradient(135deg, var(--brown-light) 0%, var(--cream) 100%);
     min-height:100vh;
@@ -23,21 +22,15 @@
     font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
     color: var(--cream);
   }
+
+  /* STATIC DOT BACKGROUND (NO ANIMATION) */
   body::before{
     content:"";
     position:fixed;
-    width:300%;
-    height:300%;
-    top:-100%;
-    left:-100%;
+    inset:0;
     background: radial-gradient(circle, rgba(255,255,255,0.08) 10%, transparent 10.5%);
     background-size: 30px 30px;
-    animation: float 20s infinite linear;
     z-index:-1;
-  }
-  @keyframes float {
-    0% { transform: translate(0,0) rotate(0deg); }
-    100% { transform: translate(-30px,-30px) rotate(360deg); }
   }
 
   /* Navbar always pinned on top */
@@ -128,7 +121,7 @@
     justify-content:center;
     gap:12px;
     width:100%;
-    max-width:420px;
+    max-width:350px;
     padding: 12px 18px;
     border-radius: 12px;
     text-decoration:none;
@@ -165,17 +158,13 @@
   }
   
   .btn-dashboard span{ position:relative; z-index:3; }
-  
+
   .btn-dashboard:hover{
-    transform: translateY(-6px) scale(1.03);
-    letter-spacing: 1.5px;
-    box-shadow: 0 18px 40px rgba(255,210,74,0.25),
-                0 8px 18px rgba(0,0,0,0.55),
-                inset 0 -8px 28px rgba(0,0,0,0.08);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
   }
+
   
-  .btn-dashboard:hover::before{ transform:translateX(0); width:12px; }
-  .btn-dashboard:hover::after{ left:100%; }
   
   .btn-cancel {
     display:inline-flex;
@@ -334,7 +323,6 @@
           <div class="form-group">
             <label class="form-label">Class Type</label>
             <select class="form-select" name="class_type" required>
-                <option value="">Select Class Type</option>
                 <option value="Th" {% if entry[8] == 'Theory' %}selected{% endif %}>Theory</option>
                 <option value="Pr" {% if entry[8] == 'Practical' %}selected{% endif %}>Practical</option>
             </select>

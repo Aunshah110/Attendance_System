@@ -15,7 +15,7 @@
     --transition: all 0.28s cubic-bezier(.2,.9,.3,1);
   }
 
-  /* Background with dynamic dots */
+  /* Background (STATIC dots) */
   body{
     background: linear-gradient(135deg, var(--brown-light) 0%, var(--cream) 100%);
     min-height:100vh;
@@ -26,18 +26,10 @@
   body::before{
     content:"";
     position:fixed;
-    width:300%;
-    height:300%;
-    top:-100%;
-    left:-100%;
+    inset:0;
     background: radial-gradient(circle, rgba(255,255,255,0.08) 10%, transparent 10.5%);
     background-size: 30px 30px;
-    animation: float 20s infinite linear;
     z-index:-1;
-  }
-  @keyframes float {
-    0% { transform: translate(0,0) rotate(0deg); }
-    100% { transform: translate(-30px,-30px) rotate(360deg); }
   }
 
   /* Navbar pinned */
@@ -121,58 +113,62 @@
     box-shadow: 0 0 0 4px rgba(246, 245, 244, 0.25);
   }
 
-  /* Buttons copied from student page */
-  .btn-dashboard{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:12px;
-    width:100%;
-    max-width:320px;
-    padding: 12px 18px;
-    border-radius: 12px;
-    text-decoration:none;
-    font-weight:800;
-    text-transform:uppercase;
-    letter-spacing:0.7px;
-    font-size: clamp(0.9rem, 1.8vw, 1rem);
-    color: var(--black);
-    background: linear-gradient(180deg, var(--yellow), #f6c95a);
-    border: 2px solid rgba(0,0,0,0.08);
-    box-shadow: 0 6px 18px rgba(122,82,48,0.12),
-                0 2px 6px rgba(0,0,0,0.35),
-                inset 0 -6px 24px rgba(0,0,0,0.06);
-    transition: var(--transition);
-    position:relative;
-    overflow:hidden;
-  }
-  .btn-dashboard::after{
-    content:""; position:absolute; top:0; left:-100%; width:100%; height:100%;
-    background: linear-gradient(120deg, transparent, rgba(255,255,255,0.3), transparent);
-    transition:0.5s; z-index:1;
-  }
-  .btn-dashboard::before{
-    content:""; position:absolute; left:0; top:0; bottom:0; width:8px;
-    background: linear-gradient(180deg, var(--brown-mid), var(--brown-dark));
-    border-top-left-radius:12px; border-bottom-left-radius:12px;
-    transform:translateX(-6px);
-    transition: var(--transition);
-    opacity:0.95; z-index:2;
-  }
-  .btn-dashboard span{ position:relative; z-index:3; }
+  /* BUTTON – SMALLER & PROFESSIONAL */
+.btn-dashboard{
+  min-width: 180px;
+  max-width: 220px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  background: linear-gradient(180deg, var(--yellow), #f6c95a);
+  border: 2px solid rgba(0,0,0,0.08);
+  transition: var(--transition);
+  margin: 0; /* 🔑 remove auto-centering */
+}
+
+
   .btn-dashboard:hover{
-    transform: translateY(-6px) scale(1.03);
-    letter-spacing: 1.5px;
-    box-shadow: 0 18px 40px rgba(255,210,74,0.25),
-                0 8px 18px rgba(0,0,0,0.55),
-                inset 0 -8px 28px rgba(0,0,0,0.08);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.35);
   }
-  .btn-dashboard:hover::before{ transform:translateX(0); width:12px; }
-  .btn-dashboard:hover::after{ left:100%; }
-  .btn-dashboard:active{
-    transform: translateY(-2px) scale(.995);
-    box-shadow: 0 8px 18px rgba(0,0,0,0.35);
+
+/* Make anchor behave exactly like button */
+.btn-dashboard,
+.btn-dashboard:link,
+.btn-dashboard:visited{
+  text-decoration: none;
+  color: var(--black);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Prevent link blue/underline on hover/focus */
+.btn-dashboard:hover,
+.btn-dashboard:focus{
+  text-decoration: none;
+  color: var(--black);
+}
+
+.action-buttons{
+  display:flex;
+  justify-content:center;
+  gap:8px;               /* less space */
+  margin-top:1rem;
+  flex-wrap:wrap;
+}
+
+/* Mobile optimization */
+@media (max-width:480px){
+  .action-buttons{
+    gap:6px;
   }
+  .btn-dashboard{
+    min-width:100%;
+  }
+}
 
   /* Responsive */
   @media (max-width:640px){
@@ -202,7 +198,7 @@
           <label for="confirm_password" class="form-label">Confirm New Password</label>
           <input type="password" class="form-control" id="confirm_password" name="confirm_password">
         </div>
-        <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin-top:1rem;">
+        <div class="action-buttons">
           <button type="submit" class="btn-dashboard"><span>Update Teacher</span></button>
           <a href="{{ url_for('manage_teachers') }}" class="btn-dashboard"><span>Cancel</span></a>
         </div>

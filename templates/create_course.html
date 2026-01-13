@@ -15,7 +15,7 @@
     --transition: all 0.28s cubic-bezier(.2,.9,.3,1);
   }
 
-  /* Background with dynamic dots */
+  /* Background with STATIC dots */
   body{
     background: linear-gradient(135deg, var(--brown-light) 0%, var(--cream) 100%);
     min-height:100vh;
@@ -32,12 +32,7 @@
     left:-100%;
     background: radial-gradient(circle, rgba(255,255,255,0.08) 10%, transparent 10.5%);
     background-size: 30px 30px;
-    animation: float 20s infinite linear;
     z-index:-1;
-  }
-  @keyframes float {
-    0% { transform: translate(0,0) rotate(0deg); }
-    100% { transform: translate(-30px,-30px) rotate(360deg); }
   }
 
   /* Navbar pinned */
@@ -66,23 +61,13 @@
     border-bottom: 2px solid var(--yellow);
     border-radius: 16px;
     padding: clamp(15px, 3.6vw, 34px);
-    box-shadow: 0 20px 40px rgba(15,10,8,0.35), inset 0 1px 0 rgba(255,255,255,0.03);
+    box-shadow: 0 20px 40px rgba(15,10,8,0.35),
+                inset 0 1px 0 rgba(255,255,255,0.03);
     position:relative;
     overflow:hidden;
     backdrop-filter: blur(8px);
   }
-  .dashboard-card::before{
-    content:"";
-    position:absolute;
-    left:0; right:0; top:0;
-    height:6px;
-    background: linear-gradient(90deg, rgba(255,210,120,0.95), rgba(139,115,85,0.95));
-    border-top-left-radius: 16px;
-    border-top-right-radius: 16px;
-    box-shadow: 0 6px 20px rgba(255,210,120,0.06);
-  }
 
-  /* Title */
   .dashboard-card h1{
     font-size: clamp(1.5rem, 2.5vw, 2rem);
     font-weight: 800;
@@ -97,96 +82,90 @@
     width:100%;
     display:flex;
     flex-direction:column;
-    gap:1.5rem;
+    gap:1.25rem;
+    align-items:center;
   }
-  .form-label { font-weight:600; color: var(--cream); }
 
-  .form-control, .form-select {
+  .form-label{
+    font-weight:600;
+    color: var(--cream);
+    margin-bottom: 0.25rem;
+  }
+
+  /* FIELD WIDTH FIX */
+  .form-control,
+  .form-select{
+    width:100%;
+    max-width: 420px;
+    margin: 0 auto;
     border-radius: 10px;
     padding: 10px 14px;
     border: 2px solid var(--brown-mid);
     background: var(--cream);
     color: var(--black);
+    font-size:0.95rem;
     transition: var(--transition);
-    width:100%;
-    font-size:1rem;
-  }
-  .form-control:focus, .form-select:focus {
-    outline:none;
-    border-color: var(--yellow);
-    box-shadow: 0 0 0 4px rgba(246, 245, 244, 0.25);
   }
 
-  /* Buttons */
+  .form-control:focus,
+  .form-select:focus{
+    outline:none;
+    border-color: var(--yellow);
+    box-shadow: 0 0 0 3px rgba(246, 245, 244, 0.25);
+  }
+
+  /* Button SIZE FIX */
   .btn-dashboard{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:12px;
     width:100%;
-    max-width:420px;
-    padding: 12px 18px;
+    max-width: 260px;
+    padding: 10px 16px;
+    margin-top: 0.75rem;
     border-radius: 12px;
-    text-decoration:none;
     font-weight:800;
+    font-size: 0.9rem;
     text-transform:uppercase;
-    letter-spacing:0.7px;
-    font-size: clamp(0.95rem, 1.8vw, 1.05rem);
+    letter-spacing:0.6px;
     color: var(--black);
     background: linear-gradient(180deg, var(--yellow), #f6c95a);
     border: 2px solid rgba(0,0,0,0.08);
-    box-shadow: 0 6px 18px rgba(122,82,48,0.12),
-                0 2px 6px rgba(0,0,0,0.35),
-                inset 0 -6px 24px rgba(0,0,0,0.06);
+    box-shadow: 0 6px 16px rgba(122,82,48,0.12),
+                0 2px 6px rgba(0,0,0,0.35);
     transition: var(--transition);
-    position:relative;
-    overflow:hidden;
-    align-self:center;
   }
-  .btn-dashboard::after{
-    content:""; position:absolute; top:0; left:-100%; width:100%; height:100%;
-    background: linear-gradient(120deg, transparent, rgba(255,255,255,0.3), transparent);
-    transition:0.5s; z-index:1;
-  }
-  .btn-dashboard::before{
-    content:""; position:absolute; left:0; top:0; bottom:0; width:8px;
-    background: linear-gradient(180deg, var(--brown-mid), var(--brown-dark));
-    border-top-left-radius:12px; border-bottom-left-radius:12px;
-    transform:translateX(-6px);
-    transition: var(--transition);
-    opacity:0.95; z-index:2;
-  }
-  .btn-dashboard span{ position:relative; z-index:3; }
+
   .btn-dashboard:hover{
-    transform: translateY(-6px) scale(1.03);
-    letter-spacing: 1.5px;
-    box-shadow: 0 18px 40px rgba(255,210,74,0.25),
-                0 8px 18px rgba(0,0,0,0.55),
-                inset 0 -8px 28px rgba(0,0,0,0.08);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(255,210,74,0.22),
+                0 6px 14px rgba(0,0,0,0.45);
   }
-  .btn-dashboard:hover::before{ transform:translateX(0); width:12px; }
-  .btn-dashboard:hover::after{ left:100%; }
 
   .btn-dashboard:active{
-    transform: translateY(-2px) scale(.995);
-    box-shadow: 0 8px 18px rgba(0,0,0,0.35);
+    transform: translateY(-1px);
   }
 
   /* Responsive */
   @media (max-width:720px){
-    .dashboard-card{ padding: 1rem; }
+    .dashboard-card{
+      padding: 1rem;
+    }
+    .form-control,
+    .form-select{
+      max-width: 100%;
+    }
   }
 </style>
 
 <div class="admin-wrapper">
   <div class="dashboard-card" role="region" aria-label="Admin create course">
     <h1>Create Course</h1>
+
     <form method="POST">
-      <div>
+      <div style="width:100%; max-width:420px;">
         <label for="name" class="form-label">Course Name</label>
         <input type="text" class="form-control" id="name" name="name" required>
       </div>
-      <div>
+
+      <div style="width:100%; max-width:420px;">
         <label for="batch_id" class="form-label">Batch</label>
         <select class="form-select" id="batch_id" name="batch_id" required>
           <option value="">-- Select Batch --</option>
@@ -195,16 +174,8 @@
           {% endfor %}
         </select>
       </div>
-      <div>
-        <label for="semester_id" class="form-label">Semester</label>
-        <select class="form-select" id="semester_id" name="semester_id" required>
-          <option value="">-- Select Semester --</option>
-          {% for semester in semesters %}
-            <option value="{{ semester[0] }}">{{ semester[1] }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
+
+      <div style="width:100%; max-width:420px;">
         <label for="department_id" class="form-label">Department</label>
         <select class="form-select" id="department_id" name="department_id" required>
           <option value="">-- Select Department --</option>
@@ -213,7 +184,20 @@
           {% endfor %}
         </select>
       </div>
-      <button type="submit" class="btn-dashboard"><span>Create Course</span></button>
+
+      <div style="width:100%; max-width:420px;">
+        <label for="semester_id" class="form-label">Semester</label>
+        <select class="form-select" id="semester_id" name="semester_id" required>
+          <option value="">-- Select Semester --</option>
+          {% for semester in semesters %}
+            <option value="{{ semester[0] }}">{{ semester[1] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <button type="submit" class="btn-dashboard">
+        Create Course
+      </button>
     </form>
   </div>
 </div>

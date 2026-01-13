@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+{% block title %}Development Team{% endblock %}
+{% block content %}
+
+<style>
+:root {
+    --primary-brown: #8B7355;
+    --light-brown: #D2B48C;
+    --dark-brown: #654321;
+    --cream: #F5F5DC;
+    --gold: #DAA520;
+    --transition: all 0.3s ease;
+}
+
+/* Base reset */
+* { margin:0; padding:0; box-sizing:border-box; }
+html { font-size:16px; scroll-behavior: smooth; }
+body {
+    background: linear-gradient(135deg, var(--light-brown) 0%, var(--cream) 100%);
+    min-height: 100vh;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* Dotted background */
+body::before {
+    content: "";
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    top: 0; left: 0;
+    background: radial-gradient(circle, rgba(90,70,59,0.15) 10%, transparent 10.5%);
+    background-size: 30px 30px;
+    z-index: -1;
+}
+
+/* Wrapper */
+.team-wrapper {
+    padding: clamp(120px, 10vw, 140px) 1rem 4rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Title */
+.team-title {
+    color: var(--dark-brown);
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    position: relative;
+    padding-bottom: 1rem;
+}
+
+.team-title::after {
+    content: "";
+    position: absolute;
+    bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 100px; height: 4px;
+    background: linear-gradient(to right, var(--gold), var(--primary-brown));
+    border-radius: 3px;
+}
+
+/* Description */
+.team-description {
+    text-align: center;
+    color: var(--dark-brown);
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    line-height: 1.6;
+    margin-bottom: 3rem;
+    max-width: 900px;
+    opacity: 0.9;
+}
+
+/* Horizontal Card */
+.team-card {
+    display: flex;
+    flex-direction: row;
+    background: rgba(255,255,255,0.95);
+    border-radius: 20px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+    padding: 2rem;
+    transition: var(--transition);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.3);
+    gap: 2rem;
+    align-items: center;
+    width: 100%;
+    max-width: 900px;
+}
+
+.team-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+}
+
+/* Photo */
+.team-photo {
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--gold);
+    box-shadow: 0 8px 25px rgba(139,115,85,0.25);
+    flex-shrink: 0;
+}
+
+/* Details */
+.team-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+}
+
+.member-name {
+    color: var(--dark-brown);
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.member-role {
+    color: var(--primary-brown);
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding: 0.3rem 1rem;
+    background: linear-gradient(135deg, rgba(218,165,32,0.1), rgba(139,115,85,0.1));
+    border-radius: 20px;
+    border: 1px solid rgba(218,165,32,0.2);
+    display: inline-block;
+    margin-bottom: 1rem;
+}
+
+/* Detail Items */
+.detail-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+}
+
+.detail-icon {
+    color: var(--gold);
+    margin-right: 0.6rem;
+    min-width: 24px;
+    font-size: 1.1rem;
+    text-align: center;
+}
+
+.detail-text {
+    color: var(--dark-brown);
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.detail-text strong {
+    color: var(--primary-brown);
+    font-weight: 600;
+}
+
+/* Supervisor style */
+.supervisor-card .member-role {
+    background: linear-gradient(135deg, rgba(101,67,33,0.1), rgba(139,115,85,0.1));
+    border-color: rgba(101,67,33,0.3);
+}
+
+/* University info */
+.university-info {
+    background: rgba(255,255,255,0.95);
+    border-radius: 20px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+    padding: 2rem;
+    margin: 2rem 1rem;
+    border-left: 4px solid var(--gold);
+    width: 100%;
+    max-width: 900px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+.university-info h3 {
+    color: var(--dark-brown);
+    font-size: 1.8rem;
+    text-align: center;
+    margin-bottom: 1rem;
+    font-weight: 700;
+}
+
+.university-info p {
+    color: var(--dark-brown);
+    font-size: 1.1rem;
+    line-height: 1.7;
+    text-align: center;
+    opacity: 0.9;
+}
+
+.university-info p strong {
+    color: var(--primary-brown);
+}
+
+/* Footer */
+.footer-note {
+    text-align: center;
+    color: var(--dark-brown);
+    margin-top: 3rem;
+    font-size: 0.95rem;
+    padding-top: 2rem;
+    border-top: 1px solid rgba(139,115,85,0.2);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .team-card {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+    }
+    .team-photo { width: 150px; height: 150px; margin: 0 auto; }
+    .team-details { align-items: center; }
+}
+</style>
+
+<div class="team-wrapper">
+    <h1 class="team-title">Development Team</h1>
+    <div class="team-description">
+        Meet the talented team behind the development of this platform. Our team is composed of dedicated students of 
+        Artificial Intelligence, working under expert supervision to create innovative educational software.
+    </div>
+
+    <!-- Team Cards -->
+    <div class="team-card">
+        <img src="{{ url_for('static', filename='uploads/aun_muhammad.jpg') }}" alt="Syed Aun Muhammad" class="team-photo"
+             onerror="this.src='https://ui-avatars.com/api/?name=Syed+Aun+Muhammad&background=8B7355&color=fff&size=200&bold=true'">
+        <div class="team-details">
+            <h2 class="member-name">Syed Aun Muhammad</h2>
+            <div class="member-role">Software Product Developer</div>
+            <div class="detail-item"><span class="detail-icon">🎓</span><span class="detail-text"><strong>Program:</strong> BS Artificial Intelligence</span></div>
+            <div class="detail-item"><span class="detail-icon">💻</span><span class="detail-text"><strong>Specialization:</strong> Full-Stack Development, AI/ML</span></div>
+            <div class="detail-item"><span class="detail-icon">📧</span><span class="detail-text"><strong>Email:</strong> aun.muhammad@example.com</span></div>
+            <div class="detail-item"><span class="detail-icon">🎯</span><span class="detail-text"><strong>Focus:</strong> System Architecture & AI Integration</span></div>
+        </div>
+    </div>
+
+    <div class="team-card">
+        <img src="{{ url_for('static', filename='uploads/muhammad_abbas.jpg') }}" alt="Muhammad Abbas" class="team-photo"
+             onerror="this.src='https://ui-avatars.com/api/?name=Muhammad+Abbas&background=8B7355&color=fff&size=200&bold=true'">
+        <div class="team-details">
+            <h2 class="member-name">Muhammad Abbas</h2>
+            <div class="member-role">Assistant Software Product Developer</div>
+            <div class="detail-item"><span class="detail-icon">🎓</span><span class="detail-text"><strong>Program:</strong> BS Artificial Intelligence</span></div>
+            <div class="detail-item"><span class="detail-icon">💻</span><span class="detail-text"><strong>Specialization:</strong> Backend Development, Databases</span></div>
+            <div class="detail-item"><span class="detail-icon">📧</span><span class="detail-text"><strong>Email:</strong> m.abbas@example.com</span></div>
+            <div class="detail-item"><span class="detail-icon">🎯</span><span class="detail-text"><strong>Focus:</strong> Database Design & API Development</span></div>
+        </div>
+    </div>
+
+    <div class="team-card supervisor-card">
+        <img src="{{ url_for('static', filename='uploads/sajjad_ali.jpg') }}" alt="Sajjad Ali" class="team-photo"
+             onerror="this.src='https://ui-avatars.com/api/?name=Sajjad+Ali&background=654321&color=fff&size=200&bold=true'">
+        <div class="team-details">
+            <h2 class="member-name">Sajjad Ali</h2>
+            <div class="member-role">Supervisor & Lecturer</div>
+            <div class="detail-item"><span class="detail-icon">🏛️</span><span class="detail-text"><strong>Department:</strong> Computer Science</span></div>
+            <div class="detail-item"><span class="detail-icon">🎓</span><span class="detail-text"><strong>Qualification:</strong> M.S. Computer Science</span></div>
+            <div class="detail-item"><span class="detail-icon">👨‍🏫</span><span class="detail-text"><strong>Role:</strong> Project Supervisor & Mentor</span></div>
+            <div class="detail-item"><span class="detail-icon">📚</span><span class="detail-text"><strong>Expertise:</strong> Software Engineering, AI Research</span></div>
+            <div class="detail-item"><span class="detail-icon">📧</span><span class="detail-text"><strong>Email:</strong> sajjad.ali@university.edu</span></div>
+        </div>
+    </div>
+
+    <div class="university-info">
+        <h3>Academic Background</h3>
+        <p>Both team members are enrolled in the <strong>BS Artificial Intelligence</strong> program, gaining cutting-edge knowledge in AI, machine learning, and intelligent systems.</p>
+        <p>Under the guidance of their supervisor from the Computer Science department, they apply their learning to real-world software development projects, ensuring practical application of modern web technologies combined with AI concepts.</p>
+    </div>
+
+    <p class="footer-note">
+        © 2026 Naz Career Computer Centre Development Team — Building the Future of Education through Technology & Innovation
+    </p>
+</div>
+
+{% endblock %}

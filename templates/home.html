@@ -1,34 +1,30 @@
 {% extends "base.html" %}
-{% block title %}Home - Student Attendance{% endblock %}
+{% block title %}Home - Attendance Management System{% endblock %}
 {% block content %}
 
-<!-- Logo -->
-<div class="logo-container text-center mt-3">
-  <img src="{{ url_for('static', filename='uni_logo.png') }}" alt="University Logo">
-</div>
+<!-- Hero Section -->
+<section class="hero-section">
 
-<!-- University Title -->
-<h2 class="uni-title">
-  BENAZIR BHUTTO SHAHEED UNIVERSITY OF TECHNOLOGY AND SKILL DEVELOPMENT KHAIRPUR
-</h2>
+  <!-- Background Image -->
+  <div class="hero-bg"></div>
 
-<!-- Container -->
-<div class="container text-center mt-4">
-  <!-- Animated Project Title + Slogan -->
-  <div class="animated-title">
-    <h1 class="project-title">UTechRollCall – Attendance Solution</h1>
-    <p class="slogan">Innovation • Automation • Transformation</p>
-  </div>
+  <!-- Foreground Content -->
+  <div class="hero-content text-center">
+    <div class="logo-container mb-4">
+      <img src="{{ url_for('static', filename='uni_logo.png') }}" alt="University Logo">
+    </div>
 
-  <!-- Buttons -->
-  <div class="btn-group-custom mt-4">
-    <a href="{{ url_for('login') }}" class="btn-custom">Login</a>
+    <h2 class="uni-title mb-4">
+      BENAZIR BHUTTO SHAHEED UNIVERSITY OF TECHNOLOGY AND SKILL DEVELOPMENT KHAIRPUR
+    </h2>
+
+    <a href="{{ url_for('login') }}" class="btn-main">Login</a>
     <!-- <a href="{{ url_for('register_admin') }}" class="btn-custom">Register Admin</a> -->
   </div>
-</div>
+</section>
 
-<!-- Footer Stripe -->
-<footer class="footer-stripe" role="contentinfo" aria-label="Site footer">
+<!-- Footer -->
+<footer class="footer-stripe text-center">
   <div class="scroll-wrapper">
     <span class="scroll-text">POWERED BY <span class="highlight">KAZMI</span></span>
   </div>
@@ -36,97 +32,89 @@
 
 <!-- Styling -->
 <style>
-/* Background */
-body {
-  background: linear-gradient(135deg, #f3e5d7, #d2b48c, #8b5e3c);
-  color: #2c2c2c;
+html, body {
+  height: 100%;
   margin: 0;
-  padding-bottom: 350px; /* Space for footer stripe */
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  overflow-x: hidden;
+}
+
+
+/* Hero Section */
+.hero-section {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 80px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+/* Background Image Layer */
+.hero-bg {
+  position: fixed; /* fixed ensures it covers full viewport */
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url("{{ url_for('static', filename='uni_garden1.png') }}");
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  filter: blur(4px) brightness(1.08);
+  transform: scale(1.06);
+  z-index: 1;
+}
+
+/* Content Card */
+.hero-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  color: #2c2c2c;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.38);
+  backdrop-filter: blur(6px);
+  border-radius: 20px;
+  max-width: 900px;
+  margin: auto;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
 }
 
 /* Logo */
 .logo-container img {
-  width: clamp(80px, 12vw, 140px);
+  width: clamp(90px, 12vw, 150px);
   height: auto;
-  object-fit: contain;
-  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.25));
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
   transition: transform 0.3s ease;
 }
 .logo-container img:hover {
-  transform: scale(1.08) rotate(3deg);
+  transform: scale(1.08);
 }
 
 /* University Title */
 .uni-title {
-  color: #512404;
   font-weight: 700;
-  font-size: clamp(1rem, 2vw, 1.6rem);
-  text-align: center;
-  margin: 15px auto 25px;
-  padding: 0 10px;
+  font-size: clamp(1rem, 2vw, 1.5rem);
   line-height: 1.5;
+  color: #3b220c;
   text-transform: uppercase;
-  max-width: 1000px;
+  margin-bottom: 25px;
 }
 
-/* Title + Slogan */
-.animated-title {
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-.project-title {
-  font-size: clamp(1.4rem, 3vw, 2.5rem);
-  font-weight: 800;
-  color: #4a2a13;
-  text-shadow: 0 3px 12px rgba(0,0,0,0.3);
-  animation: fadeInDown 1.5s ease-out;
-}
-
-@keyframes fadeInDown {
-  from { opacity: 0; transform: translateY(-30px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.slogan {
-  font-size: clamp(0.9rem, 2vw, 1.3rem);
-  font-weight: 500;
-  color: #704023;
-  margin-top: 12px;
-  font-style: italic;
-  animation: pulse 3s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0% { transform: scale(1); opacity: 0.8; }
-  50% { transform: scale(1.1); opacity: 1; }
-  100% { transform: scale(1); opacity: 0.8; }
-}
-
-/* Custom Buttons */
-.btn-group-custom {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 15px;
-}
-
-.btn-custom {
+/* Button */
+.btn-main {
   background: linear-gradient(135deg, #704023, #512404);
   color: #fff;
   padding: clamp(10px, 2vw, 14px) clamp(25px, 8vw, 100px);
   border-radius: 12px;
-  font-size: clamp(0.9rem, 2vw, 1.2rem);
+  font-size: clamp(1rem, 2vw, 1.3rem);
   font-weight: 600;
   text-decoration: none;
-  transition: all 0.3s ease;
   box-shadow: 0 6px 12px rgba(0,0,0,0.25);
-  text-align: center;
-  flex: 1 1 auto;
-  max-width: 300px;
+  transition: all 0.3s ease;
 }
-.btn-custom:hover {
+.btn-main:hover {
   background: linear-gradient(135deg, #512404, #704023);
   transform: translateY(-3px);
   box-shadow: 0 10px 18px rgba(0,0,0,0.35);
@@ -142,7 +130,7 @@ body {
   background: linear-gradient(90deg, #5a3620, #704023);
   color: #fff;
   box-shadow: 0 -2px 12px rgba(0,0,0,0.14);
-  z-index: 1000;
+  z-index: 100;
 }
 
 .scroll-wrapper {
@@ -176,9 +164,17 @@ body {
   text-shadow: 0 0 8px rgba(255,218,121,0.85);
 }
 
-/* Reduce motion accessibility */
-@media (prefers-reduced-motion: reduce) {
-  .scroll-text { animation: none !important; transform: none !important; opacity: 1 !important; }
+/* Responsive */
+@media (max-width: 768px) {
+  .hero-content {
+    padding: 1.5rem;
+    background: rgba(255,255,255,0.55);
+  }
+  .btn-main {
+    width: 90%;
+  }
 }
 </style>
+
 {% endblock %}
+  

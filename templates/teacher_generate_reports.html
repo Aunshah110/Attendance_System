@@ -15,6 +15,7 @@
     --transition: all 0.28s cubic-bezier(.2,.9,.3,1);
   }
 
+  /* Background (STATIC dots) */
   body{
     background: linear-gradient(135deg, var(--brown-light) 0%, var(--cream) 100%);
     min-height:100vh;
@@ -25,18 +26,10 @@
   body::before{
     content:"";
     position:fixed;
-    width:300%;
-    height:300%;
-    top:-100%;
-    left:-100%;
+    inset:0;
     background: radial-gradient(circle, rgba(255,255,255,0.08) 10%, transparent 10.5%);
     background-size: 30px 30px;
-    animation: float 20s infinite linear;
     z-index:-1;
-  }
-  @keyframes float {
-    0% { transform: translate(0,0) rotate(0deg); }
-    100% { transform: translate(-30px,-30px) rotate(360deg); }
   }
 
   .navbar {
@@ -91,76 +84,66 @@
     justify-content:center;
   }
 
-  .form-label { font-weight:600; color: var(--cream); }
-
-  .form-select {
+  /* BUTTON – SMALLER & PROFESSIONAL */
+ .btnn{
+    width: auto;
+    min-width: 220px;
+    max-width: 260px;
+    padding: 10px 16px;
     border-radius: 10px;
-    padding: 8px 12px;
+    font-size: 0.9rem;
+    margin: 1.2rem auto 0;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    background: linear-gradient(180deg, var(--yellow), #f6c95a);
+    border: 2px solid rgba(0,0,0,0.08);
+    transition: var(--transition);
+  }
+
+ .btnn:hover{
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.35);
+  }
+
+  /* Form styling */
+  form{
+    width:100%;
+    max-width: 520px;
+    margin: 0 auto 2rem auto;
+    display:flex;
+    flex-direction:column;
+    gap:1.2rem;
+  }
+  
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.2rem;
+  }
+
+  .form-label { 
+    font-weight:600; 
+    color: var(--cream); 
+    margin-bottom: 0.4rem;
+    display: block;
+  }
+
+  .form-select, .form-control {
+    border-radius: 10px;
+    padding: 10px 14px;
     border: 2px solid var(--brown-mid);
     background: var(--cream);
     color: var(--black);
     transition: var(--transition);
     width:100%;
-    box-sizing: border-box;
+    font-size: 0.95rem;
   }
-  .form-select:focus {
+  
+  .form-select:focus, .form-control:focus {
     outline:none;
     border-color: var(--yellow);
-    box-shadow: 0 0 0 4px rgba(255,210,74,0.25);
+    box-shadow: 0 0 0 4px rgba(246, 245, 244, 0.25);
   }
-
-  /* Buttons - reused from student page */
-  .btnn {
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:10px;
-    padding: 12px 18px;
-    border-radius: 12px;
-    font-weight:800;
-    text-transform:uppercase;
-    letter-spacing:0.7px;
-    font-size: clamp(0.9rem, 1.6vw, 1rem);
-    color: var(--black);
-    background: linear-gradient(180deg, var(--yellow), #f6c95a);
-    border: 2px solid rgba(0,0,0,0.08);
-    box-shadow:
-      0 6px 18px rgba(122,82,48,0.12),
-      0 2px 6px rgba(0,0,0,0.35),
-      inset 0 -6px 24px rgba(0,0,0,0.06);
-    transition: var(--transition);
-    position:relative;
-    overflow:hidden;
-  }
-  .btnn::after{
-    content:"";
-    position:absolute;
-    top:0; left:-100%;
-    width:100%; height:100%;
-    background: linear-gradient(120deg, transparent, rgba(255,255,255,0.3), transparent);
-    transition:0.5s;
-    z-index:1;
-  }
-  .btnn::before{
-    content:"";
-    position:absolute;
-    left:0; top:0; bottom:0;
-    width:8px;
-    background: linear-gradient(180deg, var(--brown-mid), var(--brown-dark));
-    border-top-left-radius:12px;
-    border-bottom-left-radius:12px;
-    transform:translateX(-6px);
-    transition: var(--transition);
-    z-index:2;
-  }
-  .btnn span { position:relative; z-index:3; }
-  .btnn:hover {
-    transform: translateY(-6px) scale(1.03);
-    letter-spacing: 1.5px;
-    box-shadow:0 18px 40px rgba(255,210,74,0.25), 0 8px 18px rgba(0,0,0,0.55);
-  }
-  .btnn:hover::before{ transform:translateX(0); width:12px; }
-  .btnn:hover::after{ left:100%; }
 
   /* Responsive table styles */
 .table-container {
@@ -256,6 +239,18 @@ th {
     line-height: 1.4;
   }
 
+  .no-data-alert{
+  margin-top: 1.5rem;
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: rgba(255, 210, 74, 0.18);
+  border: 1.5px solid var(--yellow);
+  color: var(--brown-dark);
+  font-weight: 600;
+  text-align: center;
+}
+
+
   /* Page title */
   h1{
     margin:0;
@@ -277,34 +272,40 @@ th {
         <div class="form-grid">
           <div>
             <label for="batch_id" class="form-label">Batch</label>
-            <select class="form-select" id="batch_id" name="batch_id" required onchange="filterCourses()">
+            <select class="form-select" id="batch_id" name="batch_id" onchange="reloadFilters()">
               <option value="">-- Select Batch --</option>
               {% for batch in batches %}
-                <option value="{{ batch[0] }}">{{ batch[1] }}</option>
+                <option value="{{ batch[0] }}" {% if batch[0]|string == selected_batch %}selected{% endif %}>
+                  {{ batch[1] }}
+                </option>
               {% endfor %}
             </select>
           </div>
           <div>
             <label for="department_id" class="form-label">Department</label>
-            <select class="form-select" id="department_id" name="department_id" required onchange="filterCourses()">
+            <select class="form-select" id="department_id" name="department_id" onchange="reloadFilters()">
               <option value="">-- Select Department --</option>
               {% for department in departments %}
-                <option value="{{ department[0] }}">{{ department[1] }}</option>
+                <option value="{{ department[0] }}" {% if department[0]|string == selected_department %}selected{% endif %}>
+                  {{ department[1] }}
+                </option>
               {% endfor %}
             </select>
           </div>
           <div>
             <label for="semester_id" class="form-label">Semester</label>
-            <select class="form-select" id="semester_id" name="semester_id" required onchange="filterCourses()">
+            <select class="form-select" id="semester_id" name="semester_id" onchange="reloadFilters()">
               <option value="">-- Select Semester --</option>
               {% for semester in semesters %}
-                <option value="{{ semester[0] }}">{{ semester[1] }}</option>
+                <option value="{{ semester[0] }}" {% if semester[0]|string == selected_semester %}selected{% endif %}>
+                  {{ semester[1] }}
+                </option>
               {% endfor %}
             </select>
           </div>
           <div>
             <label for="course_id" class="form-label">Course</label>
-            <select class="form-select" id="course_id" name="course_id" required disabled>
+            <select class="form-select" id="course_id" name="course_id" required {% if not courses %}disabled{% endif %}>
               <option value="">-- Select Course --</option>
               {% for course in courses %}
                 <option value="{{ course[0] }}">{{ course[1] }}</option>
@@ -352,11 +353,18 @@ th {
             <input type="hidden" name="department_id" value="{{ selected_department }}">
             <input type="hidden" name="semester_id" value="{{ selected_semester }}">
             <input type="hidden" name="course_id" value="{{ selected_course }}">
+            <div>
             <button type="submit" name="export_csv" class="btnn"><span>Export as CSV</span></button>
             <button type="submit" name="export_pdf" class="btnn"><span>Export as PDF</span></button>
+            </div>
           </form>
         </div>
       </div>
+      {% else %}
+      <!-- ⚠️ NO DATA MESSAGE -->
+        <div class="no-data-alert">
+            ⚠️ No records available for the selected Batch, Department and Semester.
+        </div>
       {% endif %}
 
     </div>
@@ -364,91 +372,20 @@ th {
 </div>
 
 <script>
-
-  // helper: read cookies (for optional CSRF token retrieval)
-  function getCookie(name) {
-    const match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
-    return match ? decodeURIComponent(match.pop()) : null;
-  }
-
-  // Robust filterCourses: URLSearchParams, credentials, CSRF if present, better error handling
-  function filterCourses() {
-    const batchId = document.getElementById('batch_id').value;
-    const deptId = document.getElementById('department_id').value;
-    const semesterId = document.getElementById('semester_id').value;
-    const courseSelect = document.getElementById('course_id');
-
-    // UX: show loading state
-    courseSelect.disabled = true;
-    courseSelect.innerHTML = '<option>Loading courses…</option>';
-
-    if (!batchId || !deptId || !semesterId) {
-      courseSelect.innerHTML = '<option value="">-- Select Course --</option>';
-      courseSelect.disabled = true;
-      return;
-    }
+function reloadFilters() {
+    const batch = document.getElementById('batch_id').value;
+    const department = document.getElementById('department_id').value;
+    const semester = document.getElementById('semester_id').value;
 
     const params = new URLSearchParams();
-    params.append('batch_id', batchId);
-    params.append('department_id', deptId);
-    params.append('semester_id', semesterId);
 
-    const headers = {
-      'Accept': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
-    };
+    if (batch) params.append('batch_id', batch);
+    if (department) params.append('department_id', department);
+    if (semester) params.append('semester_id', semester);
 
-    // Try to pick up a CSRF token if your app sets one in a cookie (common patterns)
-    const csrf = getCookie('csrf_token') || getCookie('csrf') || getCookie('XSRF-TOKEN') || getCookie('X-CSRFToken');
-    if (csrf) headers['X-CSRFToken'] = csrf;
-
-    fetch('/teacher/generate_reports', {
-      method: 'POST',
-      headers: headers,
-      body: params.toString(),
-      credentials: 'same-origin' // IMPORTANT: include cookies/session
-    })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('Network response was not ok: ' + response.status);
-      }
-      const contentType = response.headers.get('content-type') || '';
-      if (contentType.indexOf('application/json') !== -1) {
-        return response.json();
-      }
-      // if server returns HTML (unexpected), return text for debugging
-      return response.text().then(txt => { throw new Error('Expected JSON but received HTML'); });
-    })
-    .then(data => {
-      courseSelect.innerHTML = '';
-      if (!data || data.length === 0) {
-        const noCourseOption = document.createElement('option');
-        noCourseOption.value = '';
-        noCourseOption.textContent = 'No Course available';
-        courseSelect.appendChild(noCourseOption);
-        courseSelect.disabled = true;
-        return;
-      }
-      const defaultOption = document.createElement('option');
-      defaultOption.value = '';
-      defaultOption.textContent = '-- Select Course --';
-      courseSelect.appendChild(defaultOption);
-
-      data.forEach(course => {
-        const option = document.createElement('option');
-        option.value = course[0];
-        option.textContent = course[1];
-        courseSelect.appendChild(option);
-      });
-      courseSelect.disabled = false;
-    })
-    .catch(err => {
-      console.error('filterCourses error:', err);
-      courseSelect.innerHTML = '<option value="">Error loading courses</option>';
-      courseSelect.disabled = true;
-    });
-  }
+    window.location.href = '/teacher/generate_reports?' + params.toString();
+}
 </script>
+
 
 {% endblock %}
