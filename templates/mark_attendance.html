@@ -534,22 +534,51 @@ function fetchTimetable() {
       dayField.value = data.day;
       timetableClasses = data.classes;
 
-      // Multiple classes handling
-      if (data.total_classes === 1) {
-        classNoWrapper.style.display = "none"; // hide dropdown
-        classNoSelect.innerHTML = "";
-        fillClassFields(0);
-      } else {
-        classNoWrapper.style.display = "block"; // show dropdown
-        classNoSelect.innerHTML = "";
-        data.classes.forEach((cls, index) => {
-          const opt = document.createElement("option");
-          opt.value = index;
-          opt.text = `Class ${index + 1}`;
-          classNoSelect.appendChild(opt);
-        });
-        fillClassFields(0);
+      // 🔥 Check if all classes are Practical
+      const allPractical = timetableClasses.every(c => c.class_type === "Pr");
+
+      // ---- PRACTICAL BLOCK → MERGE TIMES ----
+      if (allPractical && timetableClasses.length > 1) {
+      
+        classNoWrapper.style.display = "none"; // no class switch
+      
+        const first = timetableClasses[0];
+        const last = timetableClasses[timetableClasses.length - 1];
+      
+        startTime.value = first.start_time;
+        endTime.value = last.end_time;
+      
+        classType.innerHTML = "";
+        const opt = document.createElement("option");
+        opt.value = "Practical";
+        opt.text = "Practical";
+        classType.appendChild(opt);
+        classType.value = "Practical";
+      
+        dayField.value = data.day;
+      
       }
+      // ---- THEORY OR MIXED → NORMAL FLOW ----
+      else {
+      
+        if (timetableClasses.length === 1) {
+          classNoWrapper.style.display = "none";
+          classNoSelect.innerHTML = "";
+          fillClassFields(0);
+        } else {
+          classNoWrapper.style.display = "block";
+          classNoSelect.innerHTML = "";
+          timetableClasses.forEach((cls, index) => {
+            const opt = document.createElement("option");
+            opt.value = index;
+            opt.text = `Class ${index + 1}`;
+            classNoSelect.appendChild(opt);
+          });
+          fillClassFields(0);
+        }
+      
+      }
+
     });
 }
 
@@ -636,7 +665,10 @@ function showFlash(msg = "Attendance marked successfully ✔") {
 /* Intercept submit when multiple classes exist */
 attendanceForm?.addEventListener("submit", function(e) {
 
-  if (timetableClasses.length <= 1) return; // normal submit
+  const allPractical = timetableClasses.every(c => c.class_type === "Pr");
+
+  // If single class OR practical block → normal submit
+  if (timetableClasses.length <= 1 || allPractical) return;
 
   e.preventDefault();
 

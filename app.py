@@ -1287,13 +1287,25 @@ def mark_attendance():
             if not cursor.fetchone():
                 raise Exception("Invalid course selection or unauthorized access.")
             
-            if date.fromisoformat(attendance_date) > date.today():
+
+            selected_date = date.fromisoformat(attendance_date)
+            today = date.today()
+
+            if selected_date > today:
                 msg = "Attendance cannot be marked for future dates."
-            
+
                 if request.headers.get("X-Requested-With") == "XMLHttpRequest":
                     return jsonify(success=False, message=msg), 400
-            
                 raise Exception(msg)
+                
+            if selected_date < today:
+                msg = "Attendance cannot be marked for previous dates."
+
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return jsonify(success=False, message=msg), 400
+
+                raise Exception(msg)
+
 
             if not any(k.startswith('attendance_') for k in request.form):
                 raise Exception("No attendance data submitted.")
@@ -1332,31 +1344,70 @@ def mark_attendance():
                 return redirect(url_for('mark_attendance'))
 
 
-            # -------------------------------
-            # ✅ Insert attendance only if not duplicate
-            # -------------------------------
+            # If practical → fetch all timetable slots for that date
+            practical_slots = []
+
+            if class_type == "Practical":
+                cursor.execute("""
+                    SELECT start_time, end_time
+                    FROM timetable
+                    WHERE batch_id = %s
+                      AND department_id = %s
+                      AND semester_id = %s
+                      AND course_id = %s
+                      AND day = TO_CHAR(%s::date, 'Day')
+                      AND class_type = 'Pr'
+                    ORDER BY start_time
+                """, (batch_id, department_id, semester_id, course_id, attendance_date))
+
+                practical_slots = cursor.fetchall()
+
+            # Insert attendance
             for key, value in request.form.items():
                 if key.startswith('attendance_'):
                     student_id = key.split('_')[1]
                     status = value
 
-                    cursor.execute("""
-                        INSERT INTO attendance
-                        (student_id, course_id, batch_id, department_id, semester_id,
-                         date, start_time, end_time, status, class_type)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                    """, (
-                        student_id,
-                        course_id,
-                        batch_id,
-                        department_id,
-                        semester_id,
-                        attendance_date,
-                        start_time,
-                        end_time,
-                        status,
-                        class_type
-                    ))
+                    # 🔹 Practical → insert for each slot
+                    if class_type == "Practical" and practical_slots:
+                        for st, et in practical_slots:
+                            cursor.execute("""
+                                INSERT INTO attendance
+                                (student_id, course_id, batch_id, department_id, semester_id,
+                                 date, start_time, end_time, status, class_type)
+                                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                            """, (
+                                student_id,
+                                course_id,
+                                batch_id,
+                                department_id,
+                                semester_id,
+                                attendance_date,
+                                st,
+                                et,
+                                status,
+                                "Practical"
+                            ))
+                    # 🔹 Theory / single class
+                    else:
+                        cursor.execute("""
+                            INSERT INTO attendance
+                            (student_id, course_id, batch_id, department_id, semester_id,
+                             date, start_time, end_time, status, class_type)
+                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        """, (
+                            student_id,
+                            course_id,
+                            batch_id,
+                            department_id,
+                            semester_id,
+                            attendance_date,
+                            start_time,
+                            end_time,
+                            status,
+                            class_type
+                        ))
+
 
             conn.commit()
             # AJAX success response
@@ -2590,8 +2641,7 @@ def convert_to_12h(time_str):
         return time_str
 
 
-
 if __name__ == '__main__':
     #init_db()
-    #app.run(debug=True)
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(debug=True)
+    #app.run(host="0.0.0.0", port=5000, debug=True)
