@@ -212,14 +212,15 @@
 
     <!-- Buttons -->
     <div class="admin-buttons" role="navigation" aria-label="Admin links">
-      <a href="{{ url_for('manage_users') }}" class="btn-admin"><span>Register Users</span></a>
-      <a href="{{ url_for('create_course') }}" class="btn-admin"><span>Create Courses</span></a>
-      <a href="{{ url_for('allocate_course') }}" class="btn-admin"><span>Allocate Courses</span></a>
-      <a href="{{ url_for('manage_courses') }}" class="btn-admin"><span>Manage Courses</span></a>
       <a href="{{ url_for('manage_batches') }}" class="btn-admin"><span>Manage Batches</span></a>
       <a href="{{ url_for('manage_departments') }}" class="btn-admin"><span>Manage Departments</span></a>
+      <a href="{{ url_for('manage_sections') }}" class="btn-admin"><span>Manage Sections</span></a>
+      <a href="{{ url_for('manage_users') }}" class="btn-admin"><span>Register Users</span></a>
       <a href="{{ url_for('manage_teachers') }}" class="btn-admin"><span>Manage Teachers</span></a>
       <a href="{{ url_for('view_students') }}" class="btn-admin"><span>Manage Students</span></a>
+      <a href="{{ url_for('create_course') }}" class="btn-admin"><span>Create Courses</span></a>
+      <a href="{{ url_for('manage_courses') }}" class="btn-admin"><span>Manage Courses</span></a>
+      <a href="{{ url_for('allocate_course') }}" class="btn-admin"><span>Allocate Courses</span></a>
       <a href="{{ url_for('manage_attendance') }}" class="btn-admin"><span>Manage Attendance</span></a>
       <a href="{{ url_for('admin_generate_reports') }}" class="btn-admin"><span>Generate Reports</span></a>
       <a href="{{ url_for('timetable') }}" class="btn-admin"><span>Timetable</span></a>

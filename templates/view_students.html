@@ -91,10 +91,10 @@ form{
   flex-direction:column;
   gap:1rem;
 }
-.form-label { font-weight:600; color: var(--cream); font-size:0.95rem; }
+
 .form-select, .form-input {
   border-radius: 10px;
-  padding: 8px 12px;
+  padding: 10px 12px;
   border: 2px solid var(--brown-mid);
   background: var(--cream);
   color: var(--black);
@@ -119,31 +119,57 @@ form{
   z-index: 2;
 }
 
-/* Primary button: filter/view */
-.btn-dashboard{
-  display: inline-flex;            /* inline-flex keeps it content-based */
-  align-items: center;
-  justify-content: center;
-  padding: 10px 20px;              /* nice professional padding */
-  min-width: 140px;                /* ensures button not too small */
-  max-width: 200px;                /* limits over-expansion */
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  background: linear-gradient(180deg, var(--yellow), #f6c95a);
-  color: var(--black);
-  border: 1.5px solid rgba(0,0,0,0.1);
-  text-decoration: none;
-  transition: var(--transition);
-  margin: 0 auto;                  /* centers the button */
+  /* Buttons */
+  .btn-dashboard{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    min-width:120px;
+    max-width:180px;
+    padding:8px 14px;
+    font-size:0.9rem;
+    border-radius:8px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:0.7px;
+    color: var(--black);
+    background: linear-gradient(180deg, var(--yellow), #f6c95a);
+    border:2px solid rgba(0,0,0,0.08);
+    text-decoration:none;
+    transition: var(--transition);
+    align-self:center;
+    position:relative;
+    overflow:hidden;
+  }
+  .btn-dashboard span{position:relative; z-index:1;}
+  .btn-dashboard:hover{
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 12px 28px rgba(255,210,74,0.25),
+                0 6px 16px rgba(0,0,0,0.45);
+  }
+
+  .btn-dashboard.btn-sm{
+    width:auto;
+    max-width:none;
+    padding:6px 12px;
+    font-size:0.82rem;
+    letter-spacing:0.4px;
+    border-radius:8px;
+  }
+
+  /* Table cell alignment for the Action column */
+td[data-label="Action"], th[data-label="Action"], th:last-child {
+  text-align: center;        /* center content horizontally */
+  vertical-align: middle;    /* center content vertically */
+  display: table-cell;       /* make it behave like normal table cells */
 }
 
-.btn-dashboard:hover{
-  transform: translateY(-3px);
+/* Delete button inside Action column */
+td[data-label="Action"] .btn-dashboard.btn-sm {
+  display: inline-block;     /* removes flex interference */
+  margin: 0 auto;            /* center horizontally */
 }
-
 
 /* Table action buttons */
 .btn-action {
@@ -159,18 +185,6 @@ form{
   white-space: nowrap;
   transition: var(--transition);
 }
-.btn-edit {
-  background: linear-gradient(180deg, #4CAF50, #3e8e41);
-  color:white;
-  border:none;
-}
-.btn-edit:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(76,175,80,0.3);}
-.btn-delete {
-  background: linear-gradient(180deg, #e74c3c, #c0392b);
-  color:white;
-  border:none;
-}
-.btn-delete:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(231,76,60,0.3); }
 
 /* Table styling */
 table{
@@ -315,7 +329,7 @@ tr:hover td{ background: rgba(255,210,74,0.25); }
       <form method="POST" id="studentFilterForm">
         <div>
           <label for="batch_id" class="form-label">Batch</label>
-          <select class="form-select" id="batch_id" name="batch_id">
+          <select class="form-select" id="batch_id" name="batch_id" required>
             <option value="">-- Select Batch --</option>
             {% for batch in batches %}
               <option value="{{ batch[0] }}" {% if selected_batch == batch[0]|string %}selected{% endif %}>{{ batch[1] }}</option>
@@ -324,22 +338,29 @@ tr:hover td{ background: rgba(255,210,74,0.25); }
         </div>
         <div>
           <label for="department_id" class="form-label">Department</label>
-          <select class="form-select" id="department_id" name="department_id">
+          <select class="form-select" id="department_id" name="department_id" required>
             <option value="">-- Select Department --</option>
             {% for department in departments %}
               <option value="{{ department[0] }}" {% if selected_department == department[0]|string %}selected{% endif %}>{{ department[1] }}</option>
             {% endfor %}
           </select>
         </div>
+
+        <div id="section-wrapper" style="display:none;">
+          <label for="section" class="form-label">Section</label>
+          <select class="form-select" id="section" name="section">
+            <option value="">-- Select Section --</option>
+          </select>
+        </div>
+
         <button type="submit" class="btn-dashboard"><span>View Students</span></button>
       </form>
 
       {% if students %}
       <div class="search-container">
-        <label for="studentSearch" class="form-label">Search Students</label>
+        <h5 style="color: var(--yellow); text-align:center;">Search Student</h5>
         <div class="search-input-container">
-          <input type="text" id="studentSearch" class="form-input" placeholder="Search by ID or name...">
-          <span class="search-icon">🔍</span>
+          <input type="text" id="studentSearch" class="form-input" placeholder="Name/ID">
         </div>
       </div>
 
@@ -350,33 +371,42 @@ tr:hover td{ background: rgba(255,210,74,0.25); }
           <tr>
             <th>Student ID</th>
             <th>Name</th>
-            <th>Email</th>
             <th>Batch</th>
             <th>Department</th>
+            {% if sections_available %}
+              <th>Section</th>
+            {% endif %}
             {% if user_role == 'admin' %}
               <th>Edit</th>
               <th>Delete</th>
             {% endif %}
           </tr>
         </thead>
+
         <tbody>
           {% for student in students %}
           <tr class="student-row" data-id="{{ student[0] }}" data-name="{{ student[1] }}">
             <td data-label="ID">{{ student[0] }}</td>
             <td data-label="Name">{{ student[1] }}</td>
-            <td data-label="Email">{{ student[2] }}</td>
-            <td data-label="Batch">{{ student[3] }}</td>
-            <td data-label="Department">{{ student[4] }}</td>
+            <td data-label="Batch">{{ student[2] }}</td>
+            <td data-label="Department">{{ student[3] }}</td>
+
+            {% if sections_available %}
+              <td data-label="Section">{{ student[4] }}</td>
+            {% endif %}
+
             {% if user_role == 'admin' %}
-              <td data-label="Edit"><a href="{{ url_for('update_student', student_id=student[0]) }}" class="btn-action btn-edit">Edit</a></td>
+              <td data-label="Edit">
+                <a href="{{ url_for('update_student', student_id=student[0]) }}" class="btn-dashboard btn-sm">Edit</a>
+              </td>
               <td data-label="Delete">
                 <form method="POST"
                   action="{{ url_for('delete_student', student_id=student[0]) }}"
                   class="delete-form"
-                  id="form-{{ student[0] }}">      
+                  id="form-{{ student[0] }}">
                   <input type="hidden" name="student_id" value="{{ student[0] }}">
                   <button type="button"
-                          class="btn-action btn-delete delete-btn"
+                          class="btn-dashboard delete-btn btn-sm"
                           data-form-id="form-{{ student[0] }}">
                     <span>Delete</span>
                   </button>
@@ -474,6 +504,57 @@ document.addEventListener('DOMContentLoaded', function() {
     modal.setAttribute('aria-hidden', 'true');
     activeForm = null;
   });
+
+  const batchSelect = document.getElementById('batch_id');
+const deptSelect = document.getElementById('department_id');
+const sectionWrapper = document.getElementById('section-wrapper');
+const sectionSelect = document.getElementById('section');
+const studentsTable = document.getElementById('studentsTable');
+const noDataAlert = document.querySelector('.no-data-alert');
+
+function resetSection() {
+  sectionWrapper.style.display = 'none';
+  sectionSelect.innerHTML = '<option value="">-- Select Section --</option>';
+  sectionSelect.removeAttribute('required');
+}
+
+async function loadSections() {
+
+  const batch = batchSelect.value;
+  const dept = deptSelect.value;
+
+  resetSection();
+
+  if (!batch || !dept) return;
+
+  try{
+    const res = await fetch(
+      `/admin/check_sections?batch_id=${batch}&department_id=${dept}`
+    );
+    const data = await res.json();
+
+    if (data.length > 0) {
+      sectionWrapper.style.display = 'block';
+      sectionSelect.setAttribute('required', 'required');
+
+      data.forEach(sec => {
+        const opt = document.createElement('option');
+        opt.value = sec[0];      // ✅ section id
+        opt.textContent = sec[1]; // ✅ section name
+        sectionSelect.appendChild(opt);
+      });
+
+      if (studentsTable) studentsTable.style.display = 'none';
+      if (noDataAlert) noDataAlert.style.display = 'none';
+    }
+
+  } catch(err){
+    console.error("Section load error:", err);
+  }
+}
+
+batchSelect.addEventListener('change', loadSections);
+deptSelect.addEventListener('change', loadSections);
 </script>
 
 {% endblock %}

@@ -185,6 +185,13 @@
         </select>
       </div>
 
+      <div style="width:100%; max-width:420px; display:none;" id="sectionBox">
+        <label class="form-label">Sections (Auto Detected)</label>
+        <input type="text" class="form-control" id="sections_display" readonly>
+      </div>
+
+      <input type="hidden" name="sections_list" id="sections_list">
+
       <div style="width:100%; max-width:420px;">
         <label for="semester_id" class="form-label">Semester</label>
         <select class="form-select" id="semester_id" name="semester_id" required>
@@ -201,5 +208,47 @@
     </form>
   </div>
 </div>
+
+<script>
+const batchSelect = document.getElementById('batch_id');
+const deptSelect = document.getElementById('department_id');
+const sectionBox = document.getElementById('sectionBox');
+const sectionDisplay = document.getElementById('sections_display');
+const sectionHidden = document.getElementById('sections_list');
+
+function fetchSections() {
+  const batchId = batchSelect.value;
+  const deptId = deptSelect.value;
+
+  if (!batchId || !deptId) {
+    sectionBox.style.display = 'none';
+    sectionDisplay.value = '';
+    sectionHidden.value = '';
+    return;
+  }
+
+  fetch(`/admin/get_sections?batch_id=${batchId}&department_id=${deptId}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.sections.length > 0) {
+        sectionBox.style.display = 'block';
+        sectionDisplay.value = data.sections.join(', ');
+        sectionHidden.value = data.sections.join(',');
+      } else {
+        sectionBox.style.display = 'none';
+        sectionDisplay.value = '';
+        sectionHidden.value = '';
+      }
+    })
+    .catch(err => {
+      console.error('Section fetch error:', err);
+      sectionBox.style.display = 'none';
+    });
+}
+
+batchSelect.addEventListener('change', fetchSections);
+deptSelect.addEventListener('change', fetchSections);
+</script>
+
 
 {% endblock %}

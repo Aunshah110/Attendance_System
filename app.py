@@ -54,6 +54,19 @@ def init_db():
             name TEXT NOT NULL
         )
     ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS sections (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            batch_id INTEGER NOT NULL,
+            department_id INTEGER NOT NULL,
+            UNIQUE (name, batch_id, department_id),
+            FOREIGN KEY (batch_id) REFERENCES batches(id),
+            FOREIGN KEY (department_id) REFERENCES departments(id)
+            );
+    ''')
+
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -63,12 +76,14 @@ def init_db():
             password TEXT NOT NULL,
             role TEXT NOT NULL,
             batch_id INTEGER,
-            department_id INTEGER,
+            department_id INTEGER, 
+            section_id INTEGER,              
             batch_status TEXT,
             admission_date TEXT,
             FOREIGN KEY (batch_id) REFERENCES batches(id),
-            FOREIGN KEY (department_id) REFERENCES departments(id)
-        )
+            FOREIGN KEY (department_id) REFERENCES departments(id),
+            FOREIGN KEY (section_id) REFERENCES sections(id)
+            );
     ''')
     
     cursor.execute('''
@@ -81,7 +96,8 @@ def init_db():
             FOREIGN KEY (semester_id) REFERENCES semesters(id),
             FOREIGN KEY (department_id) REFERENCES departments(id),
             FOREIGN KEY (batch_id) REFERENCES batches(id)
-        )
+        );
+
     ''')
     
     cursor.execute('''
@@ -256,116 +272,307 @@ def teacher_dashboard():
 def student_dashboard():
     return render_template('student.html')
 
+
+
+@app.route('/admin/manage_sections', methods=['GET', 'POST'])
+@role_required('admin')
+def manage_sections():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # ---------------- ADD SECTION ----------------
+        if request.method == 'POST' and 'add_section' in request.form:
+            section_name = request.form['section_name'].strip()
+            batch_id = request.form['batch_id']
+            department_id = request.form['department_id']
+
+            cursor.execute('''
+                INSERT INTO sections (name, batch_id, department_id)
+                VALUES (%s, %s, %s)
+            ''', (section_name, batch_id, department_id))
+
+            conn.commit()
+            flash('Section added successfully!', 'success')
+
+        # ---------------- DELETE SECTION ----------------
+        elif request.method == 'POST' and 'delete_section' in request.form:
+            section_id = request.form['section_id']
+
+            # Optional safety: detach users first (avoid FK failure)
+            cursor.execute('UPDATE users SET section_id=NULL WHERE section_id=%s', (section_id,))
+
+            cursor.execute('DELETE FROM sections WHERE id=%s', (section_id,))
+            conn.commit()
+            flash('Section deleted successfully.', 'success')
+
+    except Exception as e:
+        conn.rollback()
+        print(e)
+        flash(str(e), 'danger')
+
+    # ---------------- FETCH DATA FOR PAGE ----------------
+
+    cursor.execute('SELECT id, name FROM batches ORDER BY name')
+    batches = cursor.fetchall()
+
+    cursor.execute('SELECT id, name FROM departments ORDER BY name')
+    departments = cursor.fetchall()
+
+    cursor.execute('''
+        SELECT
+            s.id,
+            s.name AS section_name,
+            b.name AS batch_name,
+            d.name AS department_name
+        FROM sections s
+        JOIN batches b ON s.batch_id = b.id
+        JOIN departments d ON s.department_id = d.id
+        ORDER BY b.name, d.name, s.name
+    ''')
+    rows = cursor.fetchall()
+
+    sections = []
+    for r in rows:
+        sections.append({
+            'id': r[0],
+            'section_name': r[1],
+            'batch_name': r[2],
+            'department_name': r[3]
+        })
+
+    conn.close()
+
+    return render_template(
+        'manage_sections.html',
+        batches=batches,
+        departments=departments,
+        sections=sections
+    )
+
+@app.route('/admin/check_sections')
+@role_required('admin')
+def check_sections():
+    batch_id = request.args.get('batch_id')
+    department_id = request.args.get('department_id')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT id, name FROM sections
+        WHERE batch_id=%s AND department_id=%s
+        ORDER BY name
+    ''', (batch_id, department_id))
+    rows = cursor.fetchall()
+    conn.close()
+
+    return jsonify(rows)
+
 @app.route('/admin/manage_users', methods=['GET', 'POST'])
 @role_required('admin')
 def manage_users():
+
     if request.method == 'POST':
         user_id = request.form['user_id']
         name = request.form['name']
         email = request.form['email']
         password = generate_password_hash(request.form['password'])
         role = request.form['role']
-        
-        # Initialize optional fields
+
         batch_id = None
         department_id = None
+        section_id = None
         batch_status = None
         admission_date = None
-        
-        if role == 'student':
-            batch_id = request.form['batch_id']
-            department_id = request.form['department_id']
-            batch_status = request.form['batch_status']
-            
-            if batch_status == 'new':
-                admission_date = request.form['admission_date']
 
         conn = get_db_connection()
         cursor = conn.cursor()
+
         try:
+            if role == 'student':
+                batch_id = request.form['batch_id']
+                department_id = request.form['department_id']
+                batch_status = request.form['batch_status']
+
+                # Determine section
+                if request.form.get('section_id'):
+                    section_id = request.form['section_id']
+                else:
+                    # No section → NULL in DB
+                    section_id = None
+
+                if batch_status == 'new':
+                    admission_date = request.form['admission_date']
+
             cursor.execute('''
-                INSERT INTO users (id, name, email, password, role, batch_id, department_id, batch_status, admission_date)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ''', (user_id, name, email, password, role, batch_id, department_id, batch_status, admission_date))
+                INSERT INTO users
+                (id, name, email, password, role,
+                 batch_id, department_id, section_id,
+                 batch_status, admission_date)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ''', (
+                user_id, name, email, password, role,
+                batch_id, department_id, section_id,
+                batch_status, admission_date
+            ))
+
             conn.commit()
             flash('User registered successfully!', 'success')
+
         except Exception as e:
             conn.rollback()
-            flash(f'Error registering user: {str(e)}', 'danger')
+            flash(str(e), 'danger')
+
         finally:
             conn.close()
+
         return redirect(url_for('manage_users'))
 
-    # Fetch batches and departments for dropdowns
     conn = get_db_connection()
     cursor = conn.cursor()
-    try:
-        cursor.execute('SELECT * FROM batches')
-        batches = cursor.fetchall()
-        cursor.execute('SELECT * FROM departments')
-        departments = cursor.fetchall()
-    except Exception as e:
-        flash(f'Error fetching data: {str(e)}', 'danger')
-        batches = []
-        departments = []
-    finally:
-        conn.close()
-    
+    cursor.execute('SELECT id, name FROM batches ORDER BY name')
+    batches = cursor.fetchall()
+    cursor.execute('SELECT id, name FROM departments ORDER BY name')
+    departments = cursor.fetchall()
+    conn.close()
+
     return render_template('manage_users.html', batches=batches, departments=departments)
 
 
 @app.route('/admin/import_users', methods=['POST'])
 @role_required('admin')
 def import_users():
+
     if 'csv_file' not in request.files:
-        flash('No file part in the request.', 'danger')
+        flash('No file uploaded.', 'danger')
         return redirect(url_for('manage_users'))
-    
+
     file = request.files['csv_file']
-    
-    if file.filename == '':
-        flash('No selected file.', 'danger')
-        return redirect(url_for('manage_users'))
-    
-    if not file.filename.endswith('.csv'):
-        flash('Please upload a valid CSV file.', 'danger')
+    if file.filename == '' or not file.filename.endswith('.csv'):
+        flash('Invalid CSV file.', 'danger')
         return redirect(url_for('manage_users'))
 
     try:
         stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
-        csv_input = csv.DictReader(stream)
+        csv_input = list(csv.DictReader(stream))
 
         conn = get_db_connection()
         cursor = conn.cursor()
 
+        # ------------------ PRE-VALIDATION ------------------
+
         for row in csv_input:
-            user_id = row.get('user_id', 'N/A')
-            name = row.get('name', 'N/A')
-            email = row.get('email', 'N/A')
-            password = generate_password_hash(row.get('password', 'N/A'))
-            role = row.get('role', 'N/A')
-            batch_id = row.get('batch_id', 'N/A') if role == 'student' else None
-            department_id = row.get('department_id', 'N/A') if role == 'student' else None
-            batch_status = row.get('batch_status', 'N/A') if role == 'student' else None
-            admission_date = row.get('admission_date', 'N/A') if batch_status == 'new' else None
+            role = (row.get('role') or '').strip()
+
+            raw_password = (row.get('password') or '').strip()
+            if len(raw_password) < 8:
+                raise Exception(
+                    f"Password must be at least 8 characters for user ID {row.get('user_id')}"
+                )
+
+            if role == 'student':
+                batch_id = (row.get('batch_id') or '').strip()
+                department_id = (row.get('department_id') or '').strip()
+                section_name = (row.get('section_name') or '').strip() or None
+
+                # fetch batch & dept names
+                cursor.execute('SELECT name FROM batches WHERE id=%s', (batch_id,))
+                batch_res = cursor.fetchone()
+                batch_name = batch_res[0] if batch_res else f"Unknown(ID:{batch_id})"
+
+                cursor.execute('SELECT name FROM departments WHERE id=%s', (department_id,))
+                dept_res = cursor.fetchone()
+                dept_name = dept_res[0] if dept_res else f"Unknown(ID:{department_id})"
+
+                cursor.execute('''
+                    SELECT id FROM sections
+                    WHERE batch_id=%s AND department_id=%s
+                ''', (batch_id, department_id))
+                sections = cursor.fetchall()
+
+                if sections and not section_name:
+                    raise Exception(
+                        f"Section exists for {batch_name} & {dept_name}, "
+                        f"but CSV has empty section_name."
+                    )
+
+                if not sections and section_name:
+                    raise Exception(
+                        f"No sections exist for {batch_name} & {dept_name}, "
+                        f"but CSV provided section '{section_name}'."
+                    )
+
+        # ------------------ ACTUAL INSERT ------------------
+
+        for row in csv_input:
+            user_id = (row.get('user_id') or '').strip()
+            name = (row.get('name') or '').strip()
+            email = (row.get('email') or '').strip()
+            password = generate_password_hash((row.get('password') or '').strip())
+            role = (row.get('role') or '').strip()
+
+            batch_id = None
+            department_id = None
+            section_id = None
+            batch_status = None
+            admission_date = None
+
+            if role == 'student':
+                batch_id = (row.get('batch_id') or '').strip()
+                department_id = (row.get('department_id') or '').strip()
+                batch_status = (row.get('batch_status') or '').strip()
+                section_name = (row.get('section_name') or '').strip() or None
+
+                if section_name:
+                    cursor.execute('''
+                        SELECT id FROM sections
+                        WHERE name=%s AND batch_id=%s AND department_id=%s
+                    ''', (section_name, batch_id, department_id))
+                    res = cursor.fetchone()
+
+                    cursor.execute('SELECT name FROM batches WHERE id=%s', (batch_id,))
+                    batch_res = cursor.fetchone()
+                    batch_name = batch_res[0] if batch_res else f"Unknown(ID:{batch_id})"
+
+                    cursor.execute('SELECT name FROM departments WHERE id=%s', (department_id,))
+                    dept_res = cursor.fetchone()
+                    dept_name = dept_res[0] if dept_res else f"Unknown(ID:{department_id})"
+
+                    if not res:
+                        raise Exception(
+                            f"Invalid '{section_name}' for {batch_name} & {dept_name}"
+                        )
+                    section_id = res[0]
+
+                if batch_status == 'new':
+                    admission_date = (row.get('admission_date') or '').strip()
 
             cursor.execute('''
-                INSERT INTO users (id, name, email, password, role, batch_id, department_id, batch_status, admission_date)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ''', (user_id, name, email, password, role, batch_id, department_id, batch_status, admission_date))
+                INSERT INTO users
+                (id, name, email, password, role,
+                 batch_id, department_id, section_id,
+                 batch_status, admission_date)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ''', (
+                user_id, name, email, password, role,
+                batch_id, department_id, section_id,
+                batch_status, admission_date
+            ))
 
         conn.commit()
-        flash('Records imported successfully!', 'success')
+        flash('Users imported successfully!', 'success')
+
     except Exception as e:
-        if 'conn' in locals():
-            conn.rollback()
+        conn.rollback()
         print(e)
-        flash('Error importing records. Please check your CSV format.', 'danger')
+        flash(str(e), 'danger')
+
     finally:
-        if 'conn' in locals():
-            conn.close()
+        conn.close()
 
     return redirect(url_for('manage_users'))
+
+
 
 @app.route('/get_courses', methods=['POST'])
 def get_courses():
@@ -480,68 +687,138 @@ def allocate_course():
     )
 
 
-
 @app.route('/admin/view_students', methods=['GET', 'POST'])
 @role_required("admin", "teacher")
 def view_students():
+
     selected_batch = None
     selected_department = None
-    selected_batch_name = None
-    selected_department_name = None
-    students = []
+    selected_section = None
 
-    # Fetch all batches and departments for the dropdowns
+    students = []
+    sections_available = False
+    sections = []
+    show_table = False
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM batches')
-    batches = cursor.fetchall()
-    cursor.execute('SELECT * FROM departments')
-    departments = cursor.fetchall()
 
-    if request.method == 'POST':
-        selected_batch = request.form['batch_id']
-        selected_department = request.form['department_id']
+    try:
+        # -----------------------------
+        # Dropdown Data
+        # -----------------------------
+        cursor.execute('SELECT * FROM batches')
+        batches = cursor.fetchall()
 
-        # Fetch batch name
-        cursor.execute('SELECT name FROM batches WHERE id = %s', (selected_batch,))
-        batch_row = cursor.fetchone()
-        if batch_row:
-            selected_batch_name = batch_row[0]
+        cursor.execute('SELECT * FROM departments')
+        departments = cursor.fetchall()
 
-        # Fetch department name
-        cursor.execute('SELECT name FROM departments WHERE id = %s', (selected_department,))
-        dept_row = cursor.fetchone()
-        if dept_row:
-            selected_department_name = dept_row[0]
+        # -----------------------------
+        # Form Submit
+        # -----------------------------
+        if request.method == 'POST':
 
-        # Fetch students for the selected batch and department, sorted by the last number in their ID
-        # PostgreSQL uses SUBSTRING instead of SUBSTR and has different syntax
-        cursor.execute('''
-            SELECT users.id, users.name, users.email, batches.name, departments.name
-            FROM users
-            JOIN batches ON users.batch_id = batches.id
-            JOIN departments ON users.department_id = departments.id
-            WHERE users.role = 'student' AND batches.id = %s AND departments.id = %s
-            ORDER BY CAST(SUBSTRING(users.id FROM '(\\d+)$') AS INTEGER)
-        ''', (selected_batch, selected_department))
-        students = cursor.fetchall()
+            selected_batch = request.form.get('batch_id')
+            selected_department = request.form.get('department_id')
+            selected_section = request.form.get('section')
 
-    conn.close()
+            # -----------------------------------------
+            # Detect if this batch+dept has sections
+            # -----------------------------------------
+            cursor.execute('''
+                SELECT DISTINCT section_id
+                FROM users
+                WHERE role = 'student'
+                  AND batch_id = %s
+                  AND department_id = %s
+                  AND section_id IS NOT NULL
+            ''', (selected_batch, selected_department))
 
-    # Get the user's role from the session
-    user_role = session.get('role')
+            section_rows = cursor.fetchall()
+
+            if section_rows:
+                sections_available = True
+                sections = sorted([r[0] for r in section_rows if r[0]])
+
+            # -----------------------------------------
+            # RULE 1: Sections exist but not selected
+            # → DO NOT SHOW TABLE
+            # -----------------------------------------
+            if sections_available and not selected_section:
+                show_table = False
+
+            # -----------------------------------------
+            # RULE 2: Sections exist AND selected
+            # -----------------------------------------
+            elif sections_available and selected_section:
+                show_table = True
+
+                cursor.execute('''
+                    SELECT users.id,
+                           users.name,
+                           batches.name,
+                           departments.name,
+                           sections.name
+                    FROM users
+                    JOIN batches ON users.batch_id = batches.id
+                    JOIN departments ON users.department_id = departments.id
+                    JOIN sections ON users.section_id = sections.id
+                    WHERE users.role = 'student'
+                      AND users.batch_id = %s
+                      AND users.department_id = %s
+                      AND users.section_id = %s
+                    ORDER BY CAST(SUBSTRING(users.id FROM '(\\d+)$') AS INTEGER)
+                ''', (selected_batch, selected_department, selected_section))
+
+                students = cursor.fetchall()
+
+            # -----------------------------------------
+            # RULE 3: No sections exist → show directly
+            # -----------------------------------------
+            else:
+                show_table = True
+
+                cursor.execute('''
+                    SELECT users.id,
+                           users.name,
+                           batches.name,
+                           departments.name,
+                           NULL
+                    FROM users
+                    JOIN batches ON users.batch_id = batches.id
+                    JOIN departments ON users.department_id = departments.id
+                    WHERE users.role = 'student'
+                      AND users.batch_id = %s
+                      AND users.department_id = %s
+                    ORDER BY CAST(SUBSTRING(users.id FROM '(\\d+)$') AS INTEGER)
+                ''', (selected_batch, selected_department))
+
+                students = cursor.fetchall()
+
+    except Exception as e:
+        print("VIEW STUDENTS ERROR:", e)
+        students = []
+        sections_available = False
+        sections = []
+        show_table = False
+
+    finally:
+        conn.close()
 
     return render_template(
-        'view_students.html',
-        batches=batches,
-        departments=departments,
-        students=students,
-        selected_batch=selected_batch,
-        selected_department=selected_department,
-        selected_batch_name=selected_batch_name,
-        selected_department_name=selected_department_name,
-        user_role=user_role
+    'view_students.html',
+    batches=batches,
+    departments=departments,
+    students=students,
+    sections_available=sections_available,
+    sections=sections,
+    selected_batch=selected_batch,
+    selected_department=selected_department,
+    selected_section=selected_section,
+    show_table=show_table,
+    user_role=session.get('role') 
     )
+
 
 
 @app.route('/admin/update_student/<student_id>', methods=['GET', 'POST'])
@@ -2642,6 +2919,6 @@ def convert_to_12h(time_str):
 
 
 if __name__ == '__main__':
-    #init_db()
+    init_db()
     app.run(debug=True)
     #app.run(host="0.0.0.0", port=5000, debug=True)

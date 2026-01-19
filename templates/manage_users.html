@@ -134,6 +134,7 @@
     .dashboard-card{ padding: 20px; }
   }
 </style>
+<link rel="stylesheet" href="styles.css">
 
 <div class="admin-wrapper">
   <div class="dashboard-card">
@@ -154,12 +155,12 @@
 
       <div>
         <label class="form-label">Email</label>
-        <input type="email" class="form-control" name="email" required>
+        <input type="email" class="form-control" name="email" id="email" required>
       </div>
 
       <div>
         <label class="form-label">Password</label>
-        <input type="password" class="form-control" name="password" required>
+        <input type="password" class="form-control" name="password" id="password" required>
       </div>
 
       <div class="full-span">
@@ -176,7 +177,7 @@
 
           <div>
             <label class="form-label">Batch</label>
-            <select class="form-select" name="batch_id">
+            <select id="batchSelect" name="batch_id" class="form-control" required>
               <option value="">-- Select Batch --</option>
               {% for batch in batches %}
               <option value="{{ batch[0] }}">{{ batch[1] }}</option>
@@ -186,7 +187,7 @@
 
           <div>
             <label class="form-label">Department</label>
-            <select class="form-select" name="department_id">
+            <select id="departmentSelect" name="department_id" class="form-control" required>
               <option value="">-- Select Department --</option>
               {% for department in departments %}
               <option value="{{ department[0] }}">{{ department[1] }}</option>
@@ -195,8 +196,18 @@
           </div>
 
           <div>
+            <label class="form-label">Section</label>
+            <input type="text" id="sectionDisplay" class="form-control" value="None" readonly style="display:block;">
+
+            <select id="sectionSelect" name="section_id" class="form-control" style="display:none;">
+              <option value="">-- Select Section --</option>
+            </select>
+          </div>
+
+          <div>
             <label class="form-label">Batch Status</label>
-            <select class="form-select" id="batch_status" name="batch_status">
+            <select class="form-select" id="batch_status" name="batch_status" required>
+              <option value="">--Select Batch Status--</option>
               <option value="old">Old</option>
               <option value="new">New</option>
             </select>
@@ -217,7 +228,8 @@
 
     <h1>Import Users Records</h1>
 
-    <form method="POST" enctype="multipart/form-data" action="{{ url_for('import_users') }}">
+    <form method="POST" enctype="multipart/form-data" action="{{ url_for('import_users') }}"
+            id="importForm">
       <div class="full-span">
         <label class="form-label">Upload CSV File</label>
         <input type="file" class="form-control" name="csv_file" accept=".csv" required>
@@ -228,16 +240,136 @@
   </div>
 </div>
 
-<script>
-  document.getElementById('role').addEventListener('change', e => {
-    document.getElementById('studentFields').style.display =
-      e.target.value === 'student' ? 'block' : 'none';
-  });
+<div id="pageLoader" style="display:none;">
+  <div class="loader-spinner"></div>
+</div>
 
-  document.getElementById('batch_status').addEventListener('change', e => {
-    document.getElementById('admissionDateField').style.display =
-      e.target.value === 'new' ? 'block' : 'none';
-  });
+
+<script>
+const roleSelect = document.getElementById('role');
+const studentFields = document.getElementById('studentFields');
+const batchStatus = document.getElementById('batch_status');
+const admissionDateField = document.getElementById('admissionDateField');
+
+const batchSelect = document.getElementById('batchSelect');
+const deptSelect = document.getElementById('departmentSelect');
+const sectionDisplay = document.getElementById('sectionDisplay');
+const sectionSelect = document.getElementById('sectionSelect');
+
+/* ---------------- ROLE TOGGLE ---------------- */
+
+roleSelect.addEventListener('change', e => {
+  const isStudent = e.target.value === 'student';
+
+  studentFields.style.display = isStudent ? 'block' : 'none';
+
+  // toggle required attributes safely
+  batchSelect.required = isStudent;
+  deptSelect.required = isStudent;
+  batchStatus.required = isStudent;
+
+  if (!isStudent) {
+    // clear student-only values so NULL goes to backend
+    batchSelect.value = '';
+    deptSelect.value = '';
+    sectionSelect.value = '';
+    batchStatus.value = '';
+    admissionDateField.style.display = 'none';
+  }
+});
+
+
+/* ---------------- BATCH STATUS ---------------- */
+
+batchStatus.addEventListener('change', e => {
+  const isNew = e.target.value === 'new';
+  admissionDateField.style.display = isNew ? 'block' : 'none';
+
+  const adInput = admissionDateField.querySelector('input');
+  adInput.required = isNew;
+});
+
+
+/* ---------------- AUTO SECTION CHECK ---------------- */
+
+function checkSection() {
+  const batch = batchSelect.value;
+  const dept = deptSelect.value;
+
+  // Reset both
+  sectionDisplay.style.display = 'block';
+  sectionSelect.style.display = 'none';
+  sectionDisplay.value = 'None';
+  sectionSelect.innerHTML = '<option value="">-- Select Section --</option>';
+
+  if (!batch || !dept) return;
+
+  fetch(`/admin/check_sections?batch_id=${batch}&department_id=${dept}`)
+    .then(res => res.json())
+    .then(data => {
+
+      if (data.length === 0) {
+        // No section
+        sectionDisplay.value = 'None';
+      }
+      else if (data.length === 1) {
+        // Single section → read-only
+        sectionDisplay.value = `${data[0][1]}`;
+        sectionSelect.value = data[0][0]; // hidden value for submission
+      }
+      else {
+        // Multiple sections → show dropdown
+        sectionDisplay.style.display = 'none';
+        sectionSelect.style.display = 'block';
+        data.forEach(s => {
+          const option = document.createElement('option');
+          option.value = s[0];
+          option.text = `${s[1]}`;
+          sectionSelect.add(option);
+        });
+      }
+
+    })
+    .catch(err => {
+      console.error(err);
+      sectionDisplay.value = 'Error';
+    });
+}
+
+batchSelect.addEventListener('change', checkSection);
+deptSelect.addEventListener('change', checkSection);
+
+/* ---------------- FORM VALIDATION ---------------- */
+document.getElementById('userForm').addEventListener('submit', function(e) {
+
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+
+  if (!email.endsWith('@gmail.com')) {
+    alert('Email must be a valid @gmail.com address.');
+    e.preventDefault(); return;
+  }
+
+  if (password.length < 8) {
+    alert('Password must be at least 8 characters long.');
+    e.preventDefault(); return;
+  }
+
+  // Section validation
+  if (sectionSelect.style.display === 'block' && !sectionSelect.value) {
+    alert('Please select a section for this Batch and Department.');
+    e.preventDefault(); return;
+  }
+
+});
+
+document.getElementById('importForm').addEventListener('submit', function(){
+
+  const loader = document.getElementById('pageLoader');
+  loader.style.display = 'flex';
+
+});
 </script>
+
 
 {% endblock %}
