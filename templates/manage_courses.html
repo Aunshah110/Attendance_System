@@ -93,48 +93,6 @@
     font-size:0.95rem;
   }
 
-/* Primary button (form submit) */
-/* Primary button (form submit) */
-.btn-dashboard{
-  display: inline-flex;            /* inline-flex keeps it content-based */
-  align-items: center;
-  justify-content: center;
-  padding: 10px 20px;              /* nice professional padding */
-  min-width: 140px;                /* ensures button not too small */
-  max-width: 200px;                /* limits over-expansion */
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  background: linear-gradient(180deg, var(--yellow), #f6c95a);
-  color: var(--black);
-  border: 1.5px solid rgba(0,0,0,0.1);
-  text-decoration: none;
-  transition: var(--transition);
-  margin: 0 auto;                  /* centers the button */
-}
-
-.btn-dashboard:hover{
-  transform: translateY(-3px);
-}
-
-/* Small action button (table delete) */
-.btn-dashboard.btn-sm{
-  width: auto;
-  max-width: none;
-  padding: 6px 14px;
-  font-size: 0.82rem;
-  letter-spacing: 0.4px;
-  border-radius: 8px;
-}
-
-/* Anchor safety */
-a.btn-dashboard{
-  text-decoration: none;
-  color: var(--black);
-}
-
 /* Table cell alignment for the Action column */
 td[data-label="Action"], th[data-label="Action"], th:last-child {
   text-align: center;        /* center content horizontally */
@@ -234,24 +192,60 @@ td[data-label="Action"] .btn-dashboard.btn-sm {
 
   tr:hover td{ background: rgba(255,210,74,0.25); }
 
-  /* Responsive table */
   @media (max-width:720px){
-    form{ max-width:100%; }
-    table, thead, tbody, th, td, tr{ display:block; }
-    thead{ display:none; }
-    tr{ margin-bottom:14px; border-radius:10px; overflow:hidden; }
-    td{
-      padding:10px;
-      display:flex;
-      justify-content:space-between;
-    }
-    td::before{
-      content: attr(data-label);
-      font-weight:bold;
-      color: var(--brown-dark);
-    }
+  table{
+    background: none;
+    border-radius: 0;
   }
+
+  table, thead, tbody{
+    width:100%;
+  }
+
+  thead{
+    display:none;
+  }
+
+  tbody{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+
+  tr{
+    display:block;
+    background: rgba(255,255,255,0.92);
+    border-radius:12px;
+    padding:10px 12px;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.15);
+  }
+
+  td{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:6px 0;
+    border:none;
+    background:none;
+    font-size:0.9rem;
+  }
+
+  td::before{
+    content: attr(data-label);
+    font-weight:600;
+    color: var(--brown-dark);
+    flex: 0 0 40%;
+    text-align:left;
+  }
+
+  td:last-child{
+    justify-content:center;
+    margin-top:8px;
+  }
+}
+
 </style>
+<link rel="stylesheet" href="styles.css">
 
 <div class="admin-wrapper">
   <div class="dashboard-card">
@@ -259,7 +253,7 @@ td[data-label="Action"] .btn-dashboard.btn-sm {
 
       <h1 style="color: var(--yellow); text-align:center;">Manage Courses</h1>
 
-      <form method="POST">
+      <form method="POST" id="importForm">
         <div>
           <label for="batch_id" class="form-label">Batch</label>
           <select class="form-select" id="batch_id" name="batch_id" required>
@@ -284,6 +278,13 @@ td[data-label="Action"] .btn-dashboard.btn-sm {
           </select>
         </div>
 
+        <div id="section-wrapper" style="display:none;">
+          <label class="form-label">Section</label>
+          <select class="form-select" id="section_id" name="section_id">
+            <option value="">-- Select Section --</option>
+          </select>
+        </div>
+
         <div>
           <label for="semester_id" class="form-label">Semester</label>
           <select class="form-select" id="semester_id" name="semester_id" required>
@@ -295,10 +296,14 @@ td[data-label="Action"] .btn-dashboard.btn-sm {
             {% endfor %}
           </select>
         </div>
-
-        <button type="submit" class="btn-dashboard">
+        
+         <div style="text-align: center;">
+          <button type="submit" class="btn-dashboard">
           <span>Filter Courses</span>
-        </button>
+          </button>
+          <a href="{{ url_for('home') }}" class="btn-dashboard"><span>Back</span></a>
+        </div>
+
       </form>
 
       {% if courses %}
@@ -390,6 +395,90 @@ td[data-label="Action"] .btn-dashboard.btn-sm {
     modal.setAttribute('aria-hidden', 'true');
     activeForm = null;
   });
+
+const batchSelect = document.getElementById('batch_id');
+const deptSelect = document.getElementById('department_id');
+const sectionWrapper = document.getElementById('section-wrapper');
+const sectionSelect = document.getElementById('section_id');
+const semesterSelect = document.getElementById('semester_id');
+const table = document.querySelector('table');
+const noDataAlert = document.querySelector('.no-data-alert');
+
+// -------- RESET TABLE WHEN FILTER CHANGES --------
+function hideResults(){
+  if(table) table.style.display='none';
+  if(noDataAlert) noDataAlert.style.display='none';
+}
+
+// -------- RESET SECTION --------
+function resetSection(){
+  sectionWrapper.style.display='none';
+  sectionSelect.innerHTML='<option value="">-- Select Section --</option>';
+  sectionSelect.removeAttribute('required');
+}
+
+// -------- LOAD SECTIONS --------
+async function loadSections(preserve=false){
+
+  const batch=batchSelect.value;
+  const dept=deptSelect.value;
+
+  resetSection();
+
+  if(!batch || !dept) return;
+
+  try{
+    const res = await fetch(`/admin/check_sections?batch_id=${batch}&department_id=${dept}`);
+    const data = await res.json();
+
+    if(data.length>0){
+      sectionWrapper.style.display='block';
+      sectionSelect.setAttribute('required','required');
+
+      data.forEach(sec=>{
+        const opt=document.createElement('option');
+        opt.value=sec[0];
+        opt.textContent=sec[1];
+        sectionSelect.appendChild(opt);
+      });
+
+      // restore after POST
+      if(preserve && "{{ selected_section }}"){
+        sectionSelect.value="{{ selected_section }}";
+      }
+    }
+  }catch(err){
+    console.error(err);
+  }
+}
+
+// -------- AUTO LOAD ON PAGE LOAD --------
+document.addEventListener('DOMContentLoaded', ()=>{
+  if(batchSelect.value && deptSelect.value){
+    loadSections(true);
+  }
+});
+
+// -------- EVENTS --------
+batchSelect.addEventListener('change', () => {
+  hideResults();
+  loadSections();
+});
+
+deptSelect.addEventListener('change', () => {
+  hideResults();
+  loadSections();
+});
+
+sectionSelect.addEventListener('change', hideResults);
+semesterSelect.addEventListener('change', hideResults);
+
+document.getElementById('importForm').addEventListener('submit', function(){
+
+  const loader = document.getElementById('pageLoader');
+  loader.style.display = 'flex';
+
+});
 </script>
 
 {% endblock %}

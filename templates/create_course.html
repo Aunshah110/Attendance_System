@@ -114,34 +114,15 @@
     box-shadow: 0 0 0 3px rgba(246, 245, 244, 0.25);
   }
 
-  /* Button SIZE FIX */
-  .btn-dashboard{
-    width:100%;
-    max-width: 260px;
-    padding: 10px 16px;
-    margin-top: 0.75rem;
-    border-radius: 12px;
-    font-weight:800;
-    font-size: 0.9rem;
-    text-transform:uppercase;
-    letter-spacing:0.6px;
-    color: var(--black);
-    background: linear-gradient(180deg, var(--yellow), #f6c95a);
-    border: 2px solid rgba(0,0,0,0.08);
-    box-shadow: 0 6px 16px rgba(122,82,48,0.12),
-                0 2px 6px rgba(0,0,0,0.35);
-    transition: var(--transition);
-  }
-
-  .btn-dashboard:hover{
-    transform: translateY(-3px);
-    box-shadow: 0 12px 28px rgba(255,210,74,0.22),
-                0 6px 14px rgba(0,0,0,0.45);
-  }
-
-  .btn-dashboard:active{
-    transform: translateY(-1px);
-  }
+.flash-success { background:#d4edda; color:#155724; transition: opacity .3s ease; }
+.flash-warning { background:#fff3cd; color:#856404; transition: opacity .3s ease; }
+.flash-error   { background:#f8d7da; color:#721c24; transition: opacity .3s ease; }
+.flash-message{
+  padding:10px;
+  border-radius:6px;
+  margin-bottom:15px;
+  text-align:center;
+}
 
   /* Responsive */
   @media (max-width:720px){
@@ -154,6 +135,7 @@
     }
   }
 </style>
+<link rel="stylesheet" href="style.css">
 
 <div class="admin-wrapper">
   <div class="dashboard-card" role="region" aria-label="Admin create course">
@@ -185,12 +167,12 @@
         </select>
       </div>
 
-      <div style="width:100%; max-width:420px; display:none;" id="sectionBox">
-        <label class="form-label">Sections (Auto Detected)</label>
-        <input type="text" class="form-control" id="sections_display" readonly>
+      <div id="section-wrapper" style="display:none; width:100%; max-width:420px;">
+        <label class="form-label">Section</label>
+        <select class="form-select" id="section_id">
+          <option value="">-- Select Section --</option>
+        </select>
       </div>
-
-      <input type="hidden" name="sections_list" id="sections_list">
 
       <div style="width:100%; max-width:420px;">
         <label for="semester_id" class="form-label">Semester</label>
@@ -201,10 +183,13 @@
           {% endfor %}
         </select>
       </div>
-
-      <button type="submit" class="btn-dashboard">
-        Create Course
-      </button>
+      <div style="text-align: center;">
+        <button type="submit" class="btn-dashboard">
+          Create Course
+        </button>
+        <a href="{{ url_for('home') }}" class="btn-dashboard"><span>Back</span></a>
+      </div>
+      <div id="courseMsg" class="flash-message" style="display:none;"></div>
     </form>
   </div>
 </div>
@@ -212,43 +197,113 @@
 <script>
 const batchSelect = document.getElementById('batch_id');
 const deptSelect = document.getElementById('department_id');
-const sectionBox = document.getElementById('sectionBox');
-const sectionDisplay = document.getElementById('sections_display');
-const sectionHidden = document.getElementById('sections_list');
+const sectionWrapper = document.getElementById('section-wrapper');
+const sectionSelect = document.getElementById('section_id');
+const semesterSelect = document.getElementById('semester_id');
+const msgBox = document.getElementById('courseMsg');
+const form = document.querySelector('form');
 
-function fetchSections() {
-  const batchId = batchSelect.value;
-  const deptId = deptSelect.value;
-
-  if (!batchId || !deptId) {
-    sectionBox.style.display = 'none';
-    sectionDisplay.value = '';
-    sectionHidden.value = '';
-    return;
-  }
-
-  fetch(`/admin/get_sections?batch_id=${batchId}&department_id=${deptId}`)
-    .then(res => res.json())
-    .then(data => {
-      if (data.sections.length > 0) {
-        sectionBox.style.display = 'block';
-        sectionDisplay.value = data.sections.join(', ');
-        sectionHidden.value = data.sections.join(',');
-      } else {
-        sectionBox.style.display = 'none';
-        sectionDisplay.value = '';
-        sectionHidden.value = '';
-      }
-    })
-    .catch(err => {
-      console.error('Section fetch error:', err);
-      sectionBox.style.display = 'none';
-    });
+function resetSection(){
+  sectionWrapper.style.display='none';
+  sectionSelect.innerHTML='<option value="">-- Select Section --</option>';
+  sectionSelect.removeAttribute('required');
 }
 
-batchSelect.addEventListener('change', fetchSections);
-deptSelect.addEventListener('change', fetchSections);
-</script>
+// -------- LOAD SECTIONS ----------
+async function loadSections(){
+  const batch = batchSelect.value;
+  const dept = deptSelect.value;
 
+  resetSection();
+
+  if(!batch || !dept) return;
+
+  try{
+    const res = await fetch(`/admin/check_sections?batch_id=${batch}&department_id=${dept}`);
+    const data = await res.json();
+
+    if(data.length > 0){
+      sectionWrapper.style.display='block';
+      sectionSelect.setAttribute('required','required');
+
+      data.forEach(sec=>{
+        const opt=document.createElement('option');
+        opt.value=sec[0];
+        opt.textContent=sec[1];
+        sectionSelect.appendChild(opt);
+      });
+    }
+  }catch(err){
+    console.error(err);
+  }
+}
+
+batchSelect.addEventListener('change', loadSections);
+deptSelect.addEventListener('change', loadSections);
+
+// -------- SUBMIT COURSE ----------
+form.addEventListener('submit', async function(e){
+  e.preventDefault();
+
+  const payload = {
+    name: document.getElementById('name').value,
+    batch_id: batchSelect.value,
+    department_id: deptSelect.value,
+    semester_id: semesterSelect.value,
+    section_id: sectionWrapper.style.display === 'block' ? sectionSelect.value : null
+  };
+
+  try{
+    const res = await fetch('/admin/create_course', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+
+    msgBox.style.display = 'block';
+
+    if(data.status === 'success'){
+      msgBox.className = 'flash-success';
+      document.getElementById('name').value = '';
+    }
+    else if(data.status === 'warning'){
+      msgBox.className = 'flash-warning';
+    }
+    else{
+      msgBox.className = 'flash-error';
+    }
+
+    msgBox.textContent = data.msg;
+
+    /* ✅ AUTO HIDE AFTER 3 SECONDS */
+    clearTimeout(window.__flashTimer);
+    window.__flashTimer = setTimeout(() => {
+      msgBox.style.opacity = '0';
+      setTimeout(() => {
+        msgBox.style.display = 'none';
+        msgBox.style.opacity = '1'; // reset for next time
+      }, 300);
+    }, 3000);
+
+  }catch(err){
+    console.error(err);
+    msgBox.style.display = 'block';
+    msgBox.className = 'flash-error';
+    msgBox.textContent = 'Server error occurred';
+
+    clearTimeout(window.__flashTimer);
+    window.__flashTimer = setTimeout(() => {
+      msgBox.style.opacity = '0';
+      setTimeout(() => {
+        msgBox.style.display = 'none';
+        msgBox.style.opacity = '1';
+      }, 300);
+    }, 3000);
+  }
+});
+
+</script>
 
 {% endblock %}

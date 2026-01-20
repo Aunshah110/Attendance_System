@@ -119,45 +119,6 @@ form{
   z-index: 2;
 }
 
-  /* Buttons */
-  .btn-dashboard{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:8px;
-    min-width:120px;
-    max-width:180px;
-    padding:8px 14px;
-    font-size:0.9rem;
-    border-radius:8px;
-    font-weight:800;
-    text-transform:uppercase;
-    letter-spacing:0.7px;
-    color: var(--black);
-    background: linear-gradient(180deg, var(--yellow), #f6c95a);
-    border:2px solid rgba(0,0,0,0.08);
-    text-decoration:none;
-    transition: var(--transition);
-    align-self:center;
-    position:relative;
-    overflow:hidden;
-  }
-  .btn-dashboard span{position:relative; z-index:1;}
-  .btn-dashboard:hover{
-    transform: translateY(-3px) scale(1.02);
-    box-shadow: 0 12px 28px rgba(255,210,74,0.25),
-                0 6px 16px rgba(0,0,0,0.45);
-  }
-
-  .btn-dashboard.btn-sm{
-    width:auto;
-    max-width:none;
-    padding:6px 12px;
-    font-size:0.82rem;
-    letter-spacing:0.4px;
-    border-radius:8px;
-  }
-
   /* Table cell alignment for the Action column */
 td[data-label="Action"], th[data-label="Action"], th:last-child {
   text-align: center;        /* center content horizontally */
@@ -319,6 +280,7 @@ tr:hover td{ background: rgba(255,210,74,0.25); }
   margin-top:1rem;
 }
 </style>
+<link rel="stylesheet" href="styles.css">
 
 <div class="teacher-wrapper">
   <div class="dashboard-card" role="region" aria-label="Teacher dashboard">
@@ -350,10 +312,15 @@ tr:hover td{ background: rgba(255,210,74,0.25); }
           <label for="section" class="form-label">Section</label>
           <select class="form-select" id="section" name="section">
             <option value="">-- Select Section --</option>
+            {% if selected_section %}
+              <option value="{{ selected_section }}" selected>Loading...</option>
+            {% endif %}
           </select>
         </div>
-
-        <button type="submit" class="btn-dashboard"><span>View Students</span></button>
+        <div style="text-align: center;">
+          <button type="submit" class="btn-dashboard"><span>View Students</span></button>
+          <a href="{{ url_for('home') }}" class="btn-dashboard"><span>Back</span></a>
+        </div>
       </form>
 
       {% if students %}
@@ -397,7 +364,7 @@ tr:hover td{ background: rgba(255,210,74,0.25); }
 
             {% if user_role == 'admin' %}
               <td data-label="Edit">
-                <a href="{{ url_for('update_student', student_id=student[0]) }}" class="btn-dashboard btn-sm">Edit</a>
+                <a href="{{ url_for('update_student', student_id=student[0]) }}" class="btn-dashboard btn-sm"><span>Edit</span></a>
               </td>
               <td data-label="Delete">
                 <form method="POST"
@@ -505,12 +472,15 @@ document.addEventListener('DOMContentLoaded', function() {
     activeForm = null;
   });
 
-  const batchSelect = document.getElementById('batch_id');
+const batchSelect = document.getElementById('batch_id');
 const deptSelect = document.getElementById('department_id');
 const sectionWrapper = document.getElementById('section-wrapper');
 const sectionSelect = document.getElementById('section');
 const studentsTable = document.getElementById('studentsTable');
 const noDataAlert = document.querySelector('.no-data-alert');
+
+// Get previously selected section from server-rendered template
+const previousSection = "{{ selected_section or '' }}";
 
 function resetSection() {
   sectionWrapper.style.display = 'none';
@@ -518,7 +488,7 @@ function resetSection() {
   sectionSelect.removeAttribute('required');
 }
 
-async function loadSections() {
+async function loadSections(keepSelected = true) {
 
   const batch = batchSelect.value;
   const dept = deptSelect.value;
@@ -527,34 +497,57 @@ async function loadSections() {
 
   if (!batch || !dept) return;
 
-  try{
-    const res = await fetch(
-      `/admin/check_sections?batch_id=${batch}&department_id=${dept}`
-    );
+  try {
+    const res = await fetch(`/admin/check_sections?batch_id=${batch}&department_id=${dept}`);
     const data = await res.json();
 
     if (data.length > 0) {
       sectionWrapper.style.display = 'block';
-      sectionSelect.setAttribute('required', 'required');
+      sectionSelect.setAttribute('required', 'required'); 
 
       data.forEach(sec => {
         const opt = document.createElement('option');
-        opt.value = sec[0];      // ✅ section id
-        opt.textContent = sec[1]; // ✅ section name
+        opt.value = sec[0];      // section id
+        opt.textContent = sec[1]; // section name
         sectionSelect.appendChild(opt);
       });
 
+      // Keep previous selection if any
+      if (keepSelected && previousSection) {
+        sectionSelect.value = previousSection;
+      }
+
       if (studentsTable) studentsTable.style.display = 'none';
       if (noDataAlert) noDataAlert.style.display = 'none';
+    } else {
+      resetSection(); // hide section if none
     }
-
-  } catch(err){
+    
+  } catch(err) {
     console.error("Section load error:", err);
   }
 }
 
-batchSelect.addEventListener('change', loadSections);
-deptSelect.addEventListener('change', loadSections);
+// Event listeners for change
+batchSelect.addEventListener('change', () => loadSections(false)); // reset previous section
+deptSelect.addEventListener('change', () => loadSections(false));
+
+// Load sections on page load if batch+department already selected
+document.addEventListener('DOMContentLoaded', function() {
+
+  // Load sections first
+  if(batchSelect.value && deptSelect.value) {
+    loadSections(true).then(() => {
+      // After sections are loaded, show table if section + students exist
+      const selectedSec = sectionSelect.value;
+      if(selectedSec && "{{ students|length }}") {
+        if(studentsTable) studentsTable.style.display = '';
+        if(noDataAlert) noDataAlert.style.display = 'none';
+      }
+    });
+  }
+});
+
 </script>
 
 {% endblock %}

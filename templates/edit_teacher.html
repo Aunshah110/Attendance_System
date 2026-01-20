@@ -113,45 +113,6 @@
     box-shadow: 0 0 0 4px rgba(246, 245, 244, 0.25);
   }
 
-  /* BUTTON – SMALLER & PROFESSIONAL */
-.btn-dashboard{
-  min-width: 180px;
-  max-width: 220px;
-  padding: 10px 16px;
-  border-radius: 10px;
-  font-size: 0.9rem;
-  font-weight: 800;
-  letter-spacing: 0.6px;
-  background: linear-gradient(180deg, var(--yellow), #f6c95a);
-  border: 2px solid rgba(0,0,0,0.08);
-  transition: var(--transition);
-  margin: 0; /* 🔑 remove auto-centering */
-}
-
-
-  .btn-dashboard:hover{
-    transform: translateY(-3px);
-    box-shadow: 0 12px 28px rgba(0,0,0,0.35);
-  }
-
-/* Make anchor behave exactly like button */
-.btn-dashboard,
-.btn-dashboard:link,
-.btn-dashboard:visited{
-  text-decoration: none;
-  color: var(--black);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Prevent link blue/underline on hover/focus */
-.btn-dashboard:hover,
-.btn-dashboard:focus{
-  text-decoration: none;
-  color: var(--black);
-}
-
 .action-buttons{
   display:flex;
   justify-content:center;
@@ -175,6 +136,7 @@
     .dashboard-card{ padding: 20px; }
   }
 </style>
+<link rel="stylesheet" href="style.css">
 
 <div class="admin-wrapper">
   <div class="dashboard-card" role="region" aria-label="Edit Teacher">

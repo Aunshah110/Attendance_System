@@ -100,44 +100,6 @@
     box-shadow: 0 0 0 4px rgba(246,245,244,0.25);
   }
 
-  .btn-dashboard{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:8px;
-    min-width:120px;
-    max-width:180px;
-    padding:8px 14px;
-    font-size:0.9rem;
-    border-radius:8px;
-    font-weight:800;
-    text-transform:uppercase;
-    letter-spacing:0.7px;
-    color: var(--black);
-    background: linear-gradient(180deg, var(--yellow), #f6c95a);
-    border:2px solid rgba(0,0,0,0.08);
-    text-decoration:none;
-    transition: var(--transition);
-    align-self:center;
-    position:relative;
-    overflow:hidden;
-  }
-  .btn-dashboard span{position:relative; z-index:1;}
-  .btn-dashboard:hover{
-    transform: translateY(-3px) scale(1.02);
-    box-shadow: 0 12px 28px rgba(255,210,74,0.25),
-                0 6px 16px rgba(0,0,0,0.45);
-  }
-
-  .btn-dashboard.btn-sm{
-    width:auto;
-    max-width:none;
-    padding:6px 12px;
-    font-size:0.82rem;
-    letter-spacing:0.4px;
-    border-radius:8px;
-  }
-
   td[data-label="Action"], th[data-label="Action"], th:last-child {
     text-align: center;
     vertical-align: middle;
@@ -209,16 +171,69 @@
   }
   tr:hover td{ background: rgba(255,210,74,0.25); }
 
-  @media (max-width:720px){
-    td[data-label="Action"] .btn-dashboard{
-      width: auto;
-      max-width: 120px;
-      padding:6px 10px;
-      justify-content:center;
-      margin-top:4px;
-    }
+/* ================= RESPONSIVE TABLE ================= */
+
+@media (max-width: 768px){
+
+  table, thead, tbody, th, td, tr{
+    display: block;
+    width: 100%;
   }
+
+  thead{
+    display: none; /* hide header */
+  }
+
+  table{
+    background: transparent;
+  }
+
+  tbody tr{
+    background: rgba(255,255,255,0.92);
+    margin-bottom: 14px;
+    border-radius: 12px;
+    padding: 10px 12px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+  }
+
+  tbody tr:hover td{
+    background: transparent;
+  }
+
+  td{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 6px;
+    border: none;
+    background: transparent;
+    font-size: 0.92rem;
+  }
+
+  td::before{
+    content: attr(data-label);
+    font-weight: 700;
+    color: #3e2a1f;
+    padding-right: 10px;
+    white-space: nowrap;
+  }
+
+  td[data-label="Action"]{
+    justify-content: center;
+    padding-top: 12px;
+  }
+
+  td[data-label="Action"]::before{
+    display: none;
+  }
+
+  td[data-label="Action"] .btn-dashboard{
+    width: 100%;
+    max-width: 160px;
+  }
+}
 </style>
+<link rel="stylesheet" href="style.css">
 
 <div class="admin-wrapper">
   <div class="dashboard-card" role="region" aria-label="Admin dashboard">
@@ -250,7 +265,10 @@
             {% endfor %}
           </select>
         </div>
-        <button type="submit" name="add_section" class="btn-dashboard"><span>Add Section</span></button>
+        <div style="text-align: center;">
+          <button type="submit" name="add_section" class="btn-dashboard"><span>Add Section</span></button>
+          <a href="{{ url_for('home') }}" class="btn-dashboard"><span>Back</span></a>
+        </div>
       </form>
 
       <h2>Sections</h2>
@@ -267,10 +285,10 @@
         <tbody>
           {% for s in sections %}
             <tr>
-              <td>{{ loop.index }}</td>
-              <td>{{ s.section_name }}</td>
-              <td>{{ s.batch_name }}</td>
-              <td>{{ s.department_name }}</td>
+              <td data-label="#"> {{ loop.index }} </td>
+              <td data-label="Section"> {{ s.section_name }} </td>
+              <td data-label="Batch"> {{ s.batch_name }} </td>
+              <td data-label="Department"> {{ s.department_name }} </td>
               <td data-label="Action">
                 <form method="POST" id="form-{{ s.id }}">
                   <input type="hidden" name="section_id" value="{{ s.id }}">

@@ -101,31 +101,6 @@
     box-shadow: 0 0 0 4px rgba(246,245,244,0.25);
   }
 
-  /* Buttons (copied from student page advanced version) */
-.btn-dashboard{
-  display: inline-flex;            /* inline-flex keeps it content-based */
-  align-items: center;
-  justify-content: center;
-  padding: 10px 20px;              /* nice professional padding */
-  min-width: 140px;                /* ensures button not too small */
-  max-width: 200px;                /* limits over-expansion */
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  background: linear-gradient(180deg, var(--yellow), #f6c95a);
-  color: var(--black);
-  border: 1.5px solid rgba(0,0,0,0.1);
-  text-decoration: none;
-  transition: var(--transition);
-  margin: 0 auto;                  /* centers the button */
-}
-
-.btn-dashboard:hover{
-  transform: translateY(-3px);
-}
-
 
   /* Responsive */
   @media (max-width:520px){
@@ -133,6 +108,7 @@
     .btn-dashboard{ font-size: 0.95rem; padding:10px 14px; }
   }
 </style>
+<link rel="stylesheet" href="style.css">
 
 <div class="admin-wrapper">
   <div class="admin-card">
@@ -163,6 +139,21 @@
               {% endfor %}
           </select>
         </div>
+
+        <div class="mb-3" id="section-wrapper" style="display:none;">
+          <label class="form-label">Section</label>
+          <select class="form-select" id="section_id" name="section_id">
+            <option value="">-- Select Section --</option>
+          
+            {% for sec in sections %}
+              <option value="{{ sec[0] }}"
+                {% if student[7] == sec[0] %}selected{% endif %}>
+                {{ sec[1] }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
         <div class="mb-3">
           <label for="new_password" class="form-label">New Password</label>
           <input type="password"
@@ -181,11 +172,68 @@
                  placeholder="Re-enter new password">
         </div>
 
-
-        <button type="submit" class="btn-dashboard"><span>Update Student</span></button>
+        <div style="text-align: center;">
+          <button type="submit" class="btn-dashboard"><span>Update Student</span></button>
+          <a href="{{ url_for('view_students') }}" class="btn-dashboard"><span>Cancel</span></a>
+        </div>
       </form>
     </div>
   </div>
 </div>
+
+<script>
+const batchSelect = document.getElementById('batch_id');
+const deptSelect = document.getElementById('department_id');
+const sectionWrapper = document.getElementById('section-wrapper');
+const sectionSelect = document.getElementById('section_id');
+
+function resetSection(){
+  sectionWrapper.style.display = 'none';
+  sectionSelect.innerHTML = '<option value="">-- Select Section --</option>';
+  sectionSelect.removeAttribute('required');
+}
+
+// -------- LOAD SECTIONS ----------
+async function loadSections(auto=false){
+  const batch = batchSelect.value;
+  const dept = deptSelect.value;
+
+  resetSection();
+
+  if(!batch || !dept) return;
+
+  try{
+    const res = await fetch(`/admin/check_sections?batch_id=${batch}&department_id=${dept}`);
+    const data = await res.json();
+
+    if(data.length > 0){
+      sectionWrapper.style.display = 'block';
+      sectionSelect.setAttribute('required','required');
+
+      data.forEach(sec=>{
+        const opt = document.createElement('option');
+        opt.value = sec[0];
+        opt.textContent = sec[1];
+        sectionSelect.appendChild(opt);
+      });
+
+      if(auto && "{{ student[7] or '' }}"){
+        sectionSelect.value = "{{ student[7] }}";
+      }
+    }
+  }catch(err){
+    console.error('Section load error:', err);
+  }
+}
+
+// ---- EVENTS ----
+batchSelect.addEventListener('change', loadSections);
+deptSelect.addEventListener('change', loadSections);
+
+// ---- AUTO LOAD ON PAGE OPEN ----
+document.addEventListener('DOMContentLoaded', ()=>{
+  loadSections(true);
+});
+</script>
 
 {% endblock %}

@@ -122,42 +122,6 @@
     box-shadow: 0 0 0 4px rgba(246, 245, 244, 0.25);
   }
 
-  /* Buttons */
-  .btn-dashboard{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:8px;
-    width:auto;
-    min-width:140px;
-    max-width:220px;
-    padding: 8px 16px;
-    border-radius: 10px;
-    text-decoration:none;
-    font-weight:700;
-    text-transform:uppercase;
-    letter-spacing:0.6px;
-    font-size:0.9rem;
-    color: var(--black);
-    background: linear-gradient(180deg, var(--yellow), #f6c95a);
-    border: 2px solid rgba(0,0,0,0.08);
-    box-shadow: 0 6px 18px rgba(122,82,48,0.12),
-                0 2px 6px rgba(0,0,0,0.35),
-                inset 0 -6px 24px rgba(0,0,0,0.06);
-    transition: var(--transition);
-    align-self:center;
-  }
-  .btn-dashboard:hover{
-    transform: translateY(-3px) scale(1.02);
-  }
-  .btn-dashboard.btn-sm{
-    width:auto;
-    max-width:none;
-    padding:6px 12px;
-    font-size:0.82rem;
-    letter-spacing:0.4px;
-    border-radius:8px;
-  }
 
     /* Table cell alignment for the Action column */
 td[data-label="Action"], th[data-label="Action"], th:last-child {
@@ -257,6 +221,7 @@ td[data-label="Action"] .btn-dashboard.btn-sm {
   }
 }
 </style>
+<link rel="stylesheet" href="sytle.css">
 
 <div class="admin-wrapper">
   <div class="dashboard-card" role="region" aria-label="Admin dashboard">
@@ -270,9 +235,12 @@ td[data-label="Action"] .btn-dashboard.btn-sm {
           <label for="department_name" class="form-label">Department Name</label>
           <input type="text" class="form-control" id="department_name" name="department_name" required>
         </div>
-        <button type="submit" name="add_department" class="btn-dashboard"><span>Add Department</span></button>
+        <div style="text-align: center;">
+          <button type="submit" name="add_department" class="btn-dashboard"><span>Add Department</span></button>
+          <a href="{{ url_for('home') }}" class="btn-dashboard"><span>Back</span></a>
+        </div>
       </form>
-
+      
       <!-- Department Table -->
       <h1 class="mt-4">Departments</h1>
       <table>

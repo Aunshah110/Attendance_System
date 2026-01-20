@@ -93,9 +93,11 @@ def init_db():
             semester_id INTEGER NOT NULL,
             department_id INTEGER NOT NULL,
             batch_id INTEGER NOT NULL,
+            section_id INTEGER,  
             FOREIGN KEY (semester_id) REFERENCES semesters(id),
             FOREIGN KEY (department_id) REFERENCES departments(id),
-            FOREIGN KEY (batch_id) REFERENCES batches(id)
+            FOREIGN KEY (batch_id) REFERENCES batches(id),
+            FOREIGN KEY (section_id) REFERENCES sections(id)
         );
 
     ''')
@@ -351,7 +353,7 @@ def manage_sections():
     )
 
 @app.route('/admin/check_sections')
-@role_required('admin')
+@role_required('admin', 'teacher')
 def check_sections():
     batch_id = request.args.get('batch_id')
     department_id = request.args.get('department_id')
@@ -819,20 +821,21 @@ def view_students():
     user_role=session.get('role') 
     )
 
-
-
 @app.route('/admin/update_student/<student_id>', methods=['GET', 'POST'])
 @role_required("admin")
 def update_student(student_id):
+
     if request.method == 'POST':
         name = request.form['name']
         email = request.form['email']
         batch_id = request.form['batch_id']
         department_id = request.form['department_id']
+        section_id = request.form.get('section_id') or None
+
         new_password = request.form.get('new_password')
         confirm_password = request.form.get('confirm_password')
 
-        # Password validation (ONLY if provided)
+        # ---- Password validation ----
         if new_password:
             if len(new_password) < 8:
                 flash('Password must be at least 8 characters long!', 'error')
@@ -849,22 +852,24 @@ def update_student(student_id):
                 hashed_password = generate_password_hash(new_password)
                 cursor.execute('''
                     UPDATE users
-                    SET name = %s,
-                        email = %s,
-                        batch_id = %s,
-                        department_id = %s,
-                        password = %s
-                    WHERE id = %s
-                ''', (name, email, batch_id, department_id, hashed_password, student_id))
+                    SET name=%s,
+                        email=%s,
+                        batch_id=%s,
+                        department_id=%s,
+                        section_id=%s,
+                        password=%s
+                    WHERE id=%s
+                ''', (name, email, batch_id, department_id, section_id, hashed_password, student_id))
             else:
                 cursor.execute('''
                     UPDATE users
-                    SET name = %s,
-                        email = %s,
-                        batch_id = %s,
-                        department_id = %s
-                    WHERE id = %s
-                ''', (name, email, batch_id, department_id, student_id))
+                    SET name=%s,
+                        email=%s,
+                        batch_id=%s,
+                        department_id=%s,
+                        section_id=%s
+                    WHERE id=%s
+                ''', (name, email, batch_id, department_id, section_id, student_id))
 
             conn.commit()
             flash('Student updated successfully!', 'success')
@@ -874,29 +879,40 @@ def update_student(student_id):
             conn.rollback()
             flash('Error updating student!', 'error')
             return redirect(url_for('update_student', student_id=student_id))
+
         finally:
             conn.close()
 
-    # GET DATA
+    # -------- GET DATA --------
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM users WHERE id = %s', (student_id,))
+
+    cursor.execute('SELECT * FROM users WHERE id=%s', (student_id,))
     student = cursor.fetchone()
-    cursor.execute('SELECT * FROM batches')
+
+    cursor.execute('SELECT id, name FROM batches ORDER BY name')
     batches = cursor.fetchall()
-    cursor.execute('SELECT * FROM departments')
+
+    cursor.execute('SELECT id, name FROM departments ORDER BY name')
     departments = cursor.fetchall()
+
+    # preload sections for student's current batch+dept
+    cursor.execute('''
+        SELECT id, name FROM sections
+        WHERE batch_id=%s AND department_id=%s
+        ORDER BY name
+    ''', (student[5], student[6]))
+    sections = cursor.fetchall()
+
     conn.close()
 
     return render_template(
         'update_student.html',
         student=student,
         batches=batches,
-        departments=departments
+        departments=departments,
+        sections=sections
     )
-
-
-from flask import redirect, url_for, flash
 
 @app.route('/admin/delete_student/<student_id>', methods=['POST'])
 @role_required("admin")
@@ -1409,83 +1425,143 @@ def register_admin():
 @app.route('/admin/create_course', methods=['GET', 'POST'])
 @role_required('admin')
 def create_course():
+
     if request.method == 'POST':
-        name = request.form['name']
-        semester_id = request.form['semester_id']
-        department_id = request.form['department_id']
-        batch_id = request.form['batch_id']
+        data = request.get_json()
+
+        name = data.get('name', '').strip().lower()
+        semester_id = data.get('semester_id')
+        department_id = data.get('department_id')
+        batch_id = data.get('batch_id')
+        section_id = data.get('section_id') or None
+
+        if not all([name, semester_id, department_id, batch_id]):
+            return jsonify({'status': 'error', 'msg': 'Missing required fields'}), 400
 
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO courses (name, semester_id, department_id, batch_id)
-            VALUES (%s, %s, %s, %s)
-        ''', (name, semester_id, department_id, batch_id))
+
+        # DUPLICATE CHECK (case-insensitive)
+        if section_id:
+            cursor.execute("""
+                SELECT 1 FROM courses
+                WHERE LOWER(TRIM(name))=%s
+                  AND semester_id=%s
+                  AND department_id=%s
+                  AND batch_id=%s
+                  AND section_id=%s
+            """, (name, semester_id, department_id, batch_id, section_id))
+        else:
+            cursor.execute("""
+                SELECT 1 FROM courses
+                WHERE LOWER(TRIM(name))=%s
+                  AND semester_id=%s
+                  AND department_id=%s
+                  AND batch_id=%s
+                  AND section_id IS NULL
+            """, (name, semester_id, department_id, batch_id))
+
+        if cursor.fetchone():
+            conn.close()
+            return jsonify({'status': 'warning', 'msg': 'Course already exists for this selection'})
+
+        # INSERT
+        cursor.execute("""
+            INSERT INTO courses (name, semester_id, department_id, batch_id, section_id)
+            VALUES (%s,%s,%s,%s,%s)
+        """, (name, semester_id, department_id, batch_id, section_id))
+
         conn.commit()
         conn.close()
-        flash('Course created successfully!', 'success')
-        return redirect(url_for('create_course'))
 
-    # Fetch semesters, departments, and batches for dropdowns
+        return jsonify({'status': 'success', 'msg': 'Course created successfully!'})
+
+    # ---------- GET ----------
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM semesters')
+    cursor.execute('SELECT id, name FROM semesters ORDER BY id')
     semesters = cursor.fetchall()
-    cursor.execute('SELECT * FROM departments')
+    cursor.execute('SELECT id, name FROM departments ORDER BY name')
     departments = cursor.fetchall()
-    cursor.execute('SELECT * FROM batches')
+    cursor.execute('SELECT id, name FROM batches ORDER BY name')
     batches = cursor.fetchall()
     conn.close()
-    
-    return render_template('create_course.html', 
-                         semesters=semesters, 
-                         departments=departments,
-                         batches=batches)
 
+    return render_template(
+        'create_course.html',
+        semesters=semesters,
+        departments=departments,
+        batches=batches
+    )
 
 @app.route('/admin/manage_courses', methods=['GET', 'POST'])
 @role_required("admin")
 def manage_courses():
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Fetch dropdown data for both GET and POST
-    cursor.execute('SELECT * FROM batches')
+
+    # ---------- DROPDOWNS ----------
+    cursor.execute('SELECT id, name FROM batches ORDER BY name')
     batches = cursor.fetchall()
-    cursor.execute('SELECT * FROM departments')
+
+    cursor.execute('SELECT id, name FROM departments ORDER BY name')
     departments = cursor.fetchall()
-    cursor.execute('SELECT * FROM semesters')
+
+    cursor.execute('SELECT id, name FROM semesters ORDER BY id')
     semesters = cursor.fetchall()
 
     courses = []
-    selected_batch = selected_department = selected_semester = None
+    selected_batch = selected_department = selected_semester = selected_section = None
 
     if request.method == 'POST':
-        selected_batch = request.form['batch_id']
-        selected_department = request.form['department_id']
-        selected_semester = request.form['semester_id']
 
-        # Fetch filtered courses
-        cursor.execute('''
-            SELECT id, name
-            FROM courses 
-            WHERE batch_id = %s AND department_id = %s AND semester_id = %s
-        ''', (selected_batch, selected_department, selected_semester))
+        selected_batch = request.form.get('batch_id')
+        selected_department = request.form.get('department_id')
+        selected_semester = request.form.get('semester_id')
+        selected_section = request.form.get('section_id') or None
+
+        # ---------- FETCH COURSES ----------
+        if selected_section:
+            cursor.execute("""
+                SELECT id, name
+                FROM courses
+                WHERE batch_id=%s
+                  AND department_id=%s
+                  AND semester_id=%s
+                  AND section_id=%s
+                ORDER BY name
+            """, (selected_batch, selected_department, selected_semester, selected_section))
+        else:
+            cursor.execute("""
+                SELECT id, name
+                FROM courses
+                WHERE batch_id=%s
+                  AND department_id=%s
+                  AND semester_id=%s
+                  AND section_id IS NULL
+                ORDER BY name
+            """, (selected_batch, selected_department, selected_semester))
+
         courses = cursor.fetchall()
 
     conn.close()
 
-    return render_template('manage_courses.html',
-                           batches=batches,
-                           departments=departments,
-                           semesters=semesters,
-                           courses=courses,
-                           selected_batch=selected_batch,
-                           selected_department=selected_department,
-                           selected_semester=selected_semester)
+    return render_template(
+        'manage_courses.html',
+        batches=batches,
+        departments=departments,
+        semesters=semesters,
+        courses=courses,
+        selected_batch=selected_batch,
+        selected_department=selected_department,
+        selected_semester=selected_semester,
+        selected_section=selected_section
+    )
 
 
 @app.route('/admin/delete_course/<int:course_id>', methods=['POST'])
+@role_required("admin")
 def delete_course(course_id):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -2919,6 +2995,6 @@ def convert_to_12h(time_str):
 
 
 if __name__ == '__main__':
-    init_db()
-    app.run(debug=True)
-    #app.run(host="0.0.0.0", port=5000, debug=True)
+    #init_db()
+    #app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)

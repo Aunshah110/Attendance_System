@@ -21,3 +21,44 @@
 @keyframes spin{
   to { transform: rotate(360deg); }
 }
+
+  /* Buttons */
+  .btn-dashboard{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    min-width:120px;
+    max-width:180px;
+    padding:8px 14px;
+    font-size:0.9rem;
+    border-radius:8px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:0.7px;
+    color: var(--black);
+    background: linear-gradient(180deg, var(--yellow), #f6c95a);
+    border:2px solid rgba(0,0,0,0.08);
+    text-decoration:none;
+    transition: var(--transition);
+    align-self:center;
+    position:relative;
+    overflow:hidden;
+    text-decoration: none;
+    text-align: center;
+  }
+  .btn-dashboard span{position:relative; z-index:1;}
+  .btn-dashboard:hover{
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 12px 28px rgba(255,210,74,0.25),
+                0 6px 16px rgba(0,0,0,0.45);
+  }
+
+  .btn-dashboard.btn-sm{
+    width:auto;
+    max-width:none;
+    padding:6px 12px;
+    font-size:0.82rem;
+    letter-spacing:0.4px;
+    border-radius:8px;
+  }

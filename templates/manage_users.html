@@ -103,28 +103,6 @@
     grid-column: 1 / -1;
   }
 
-  /* BUTTON */
-  .btn-dashboard{
-    grid-column: 1 / -1;
-    max-width: 320px;
-    margin: 1.2rem auto 0;
-    padding: 12px;
-    border-radius: 10px;
-    font-weight:800;
-    text-transform:uppercase;
-    letter-spacing:0.8px;
-    background: linear-gradient(180deg, var(--yellow), #f6c95a);
-    color: var(--black);
-    border: none;
-    cursor:pointer;
-    transition: var(--transition);
-  }
-
-  .btn-dashboard:hover{
-    transform: translateY(-3px);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
-  }
-
   hr{
     margin: 3rem 0 2rem;
     border-color: rgba(255,255,255,0.2);
@@ -220,8 +198,10 @@
 
         </div>
       </div>
-
-      <button type="submit" class="btn-dashboard">Register User</button>
+      <div>
+          <button type="submit" class="btn-dashboard"><span>Register User</span></button>
+          <a href="{{ url_for('home') }}" class="btn-dashboard"><span>Back</span></a>
+      </div>
     </form>
 
     <hr>
@@ -234,7 +214,7 @@
         <label class="form-label">Upload CSV File</label>
         <input type="file" class="form-control" name="csv_file" accept=".csv" required>
       </div>
-      <button type="submit" class="btn-dashboard">Import Records</button>
+      <button type="submit" class="btn-dashboard"><span>Records</span></button>
     </form>
 
   </div>
