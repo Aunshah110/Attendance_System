@@ -163,6 +163,29 @@
         padding: 0.4rem 0.6rem !important;
       }
     }
+
+    /* Mobile dropdown menu styling */
+@media (max-width: 991px) {
+
+  .navbar-collapse {
+    background: rgba(84, 38, 13, 0.97);
+    border-radius: 12px;
+    padding: 12px 0;
+    margin-top: 10px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.35);
+  }
+
+  .navbar-nav .nav-link {
+    padding: 12px 0 !important;
+    font-size: 1.05rem;
+  }
+
+  .navbar-brand .brand-text {
+    font-size: 1.25rem;
+  }
+
+}
+
   </style>
 </head>
 <body class="bg-light">
@@ -170,25 +193,62 @@
   <!-- Navigation Bar -->
   <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
     <div class="container">
-      <a class="navbar-brand" href="/">
-        <i class="bi bi-mortarboard-fill"></i> Attendance System
-      </a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-        <span class="navbar-toggler-icon"></span>
-      </button>
 
-      <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav ms-auto">
-          <li class="nav-item"><a class="nav-link {% if request.endpoint=='home' %}active{% endif %}" href="{{ url_for('home') }}">Home</a></li>
-          <li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
-          <li class="nav-item"><a class="nav-link" href="/about">About</a></li>
+      <!-- Brand + Toggle in one row -->
+      <div class="d-flex align-items-center justify-content-between w-100">
+
+        <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+          <i class="bi bi-mortarboard-fill"></i>
+          <span class="brand-text">Attendance System</span>
+        </a>
+
+        <button class="navbar-toggler ms-auto" type="button"
+                data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false"
+                aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+      </div>
+
+      <!-- Collapsible Menu -->
+      <div class="collapse navbar-collapse mt-3 mt-lg-0" id="navbarNav">
+        <ul class="navbar-nav ms-auto text-center text-lg-start">
+
+          <li class="nav-item">
+            <a class="nav-link {% if request.endpoint=='home' %}active{% endif %}"
+               href="{{ url_for('home') }}">Home</a>
+          </li>
+
+          <li class="nav-item">
+            <a class="nav-link" href="/login">Login</a>
+          </li>
+
+          <li class="nav-item">
+            <a class="nav-link" href="/about">About</a>
+          </li>
+
+          {% if 'user_id' in session %}
+            <li class="nav-item d-lg-none mt-3 text-center">
+              <a href="{{ url_for('logout') }}" class="btn btn-logout d-inline-block px-4">
+                Logout
+              </a>
+            </li>
+          {% endif %}
+
         </ul>
+
         {% if 'user_id' in session %}
-          <a href="{{ url_for('logout') }}" class="btn btn-logout">Logout</a>
+          <a href="{{ url_for('logout') }}"
+             class="btn btn-logout d-none d-lg-inline-block ms-lg-3">
+             Logout
+          </a>
         {% endif %}
       </div>
+
     </div>
   </nav>
+
 
   <!-- Alert Messages Container - FIXED POSITION -->
   <div class="alert-container">

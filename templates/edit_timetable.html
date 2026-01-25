@@ -114,91 +114,6 @@
     box-shadow: 0 0 0 4px rgba(246, 245, 244, 0.25);
   }
 
-  /* Buttons (copied from student page advanced version) */
-  .btn-dashboard{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:12px;
-    width:100%;
-    max-width:350px;
-    padding: 12px 18px;
-    border-radius: 12px;
-    text-decoration:none;
-    font-weight:800;
-    text-transform:uppercase;
-    letter-spacing:0.7px;
-    font-size: clamp(0.95rem, 1.8vw, 1.05rem);
-    color: var(--black);
-    background: linear-gradient(180deg, var(--yellow), #f6c95a);
-    border: 2px solid rgba(0,0,0,0.08);
-    box-shadow: 0 6px 18px rgba(122,82,48,0.12),
-                0 2px 6px rgba(0,0,0,0.35),
-                inset 0 -6px 24px rgba(0,0,0,0.06);
-    transition: var(--transition);
-    position:relative;
-    overflow:hidden;
-    cursor: pointer;
-    margin-right: 15px;
-  }
-  
-  .btn-dashboard::after{
-    content:""; position:absolute; top:0; left:-100%; width:100%; height:100%;
-    background: linear-gradient(120deg, transparent, rgba(255,255,255,0.3), transparent);
-    transition:0.5s; z-index:1;
-  }
-  
-  .btn-dashboard::before{
-    content:""; position:absolute; left:0; top:0; bottom:0; width:8px;
-    background: linear-gradient(180deg, var(--brown-mid), var(--brown-dark));
-    border-top-left-radius:12px; border-bottom-left-radius:12px;
-    transform:translateX(-6px);
-    transition: var(--transition);
-    opacity:0.95; z-index:2;
-  }
-  
-  .btn-dashboard span{ position:relative; z-index:3; }
-
-  .btn-dashboard:hover{
-    transform: translateY(-3px);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
-  }
-
-  
-  
-  .btn-cancel {
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:12px;
-    padding: 12px 24px;
-    border-radius: 12px;
-    text-decoration:none;
-    font-weight:800;
-    text-transform:uppercase;
-    letter-spacing:0.7px;
-    font-size: clamp(0.95rem, 1.8vw, 1.05rem);
-    color: var(--cream);
-    background: rgba(139, 69, 19, 0.7);
-    border: 2px solid rgba(255,255,255,0.1);
-    box-shadow: 0 6px 18px rgba(122,82,48,0.12);
-    transition: var(--transition);
-  }
-  
-  .btn-cancel:hover {
-    background: rgba(139, 69, 19, 0.9);
-    transform: translateY(-3px);
-    color: var(--cream);
-    text-decoration: none;
-  }
-
-  .button-group {
-    display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
-    margin-top: 20px;
-  }
-
   /* Form grid layout */
   .form-grid {
     display: grid;
@@ -250,91 +165,206 @@
     }
   }
 </style>
+<link rel="stylesheet" href="style.css">
 
 <div class="admin-wrapper">
   <div class="dashboard-card" role="region" aria-label="Edit Timetable Entry">
     <div class="dashboard-inner">
       <h2>Edit Timetable Entry</h2>
       
-      <form method="POST">
+      <form method="POST" id="editForm">
         <div class="form-grid">
-          <div class="form-group">
+        
+          <!-- Batch -->
+          <div>
             <label class="form-label">Batch</label>
-            <select class="form-select" name="batch_id" required>
-                <option value="">Select Batch</option>
-                {% for batch in batches %}
-                    <option value="{{ batch[0] }}" {% if entry[2] == batch[0] %}selected{% endif %}>{{ batch[1] }}</option>
-                {% endfor %}
+            <select class="form-select" name="batch_id" id="batch_id" required>
+              {% for b in batches %}
+                <option value="{{ b[0] }}" {% if entry[2]==b[0] %}selected{% endif %}>{{ b[1] }}</option>
+              {% endfor %}
             </select>
           </div>
-          
-          <div class="form-group">
+        
+          <!-- Department -->
+          <div>
             <label class="form-label">Department</label>
-            <select class="form-select" name="department_id" required>
-                <option value="">Select Department</option>
-                {% for department in departments %}
-                    <option value="{{ department[0] }}" {% if entry[3] == department[0] %}selected{% endif %}>{{ department[1] }}</option>
-                {% endfor %}
+            <select class="form-select" name="department_id" id="department_id" required>
+              {% for d in departments %}
+                <option value="{{ d[0] }}" {% if entry[3]==d[0] %}selected{% endif %}>{{ d[1] }}</option>
+              {% endfor %}
             </select>
           </div>
-          
-          <div class="form-group">
+        
+          <!-- Section -->
+          <div id="sectionWrapper" style="display:none;">
+            <label class="form-label">Section</label>
+            <select class="form-select" name="section_id" id="section_id"></select>
+          </div>
+        
+          <!-- Semester -->
+          <div>
             <label class="form-label">Semester</label>
             <select class="form-select" name="semester_id" required>
-                <option value="">Select Semester</option>
-                {% for semester in semesters %}
-                    <option value="{{ semester[0] }}" {% if entry[4] == semester[0] %}selected{% endif %}>{{ semester[1] }}</option>
-                {% endfor %}
+              {% for s in semesters %}
+                <option value="{{ s[0] }}" {% if entry[4]==s[0] %}selected{% endif %}>{{ s[1] }}</option>
+              {% endfor %}
             </select>
           </div>
-          
-          <div class="form-group">
+        
+          <!-- Course -->
+          <div>
             <label class="form-label">Course</label>
-            <select class="form-select" name="course_id" required>
-                <option value="">Select Course</option>
-                {% for course in courses %}
-                    <option value="{{ course[0] }}" {% if entry[1] == course[0] %}selected{% endif %}>{{ course[1] }}</option>
-                {% endfor %}
+            <select class="form-select" name="course_id" id="course_id" required>
+              <option value="">-- Select Course --</option>
+              {% for c in courses %} <!-- initial load, will be replaced by JS -->
+                <option value="{{ c[0] }}" {% if entry[1]==c[0] %}selected{% endif %}>{{ c[1] }}</option>
+              {% endfor %}
             </select>
           </div>
-          
-          <div class="form-group">
+        
+          <!-- Day -->
+          <div>
             <label class="form-label">Day</label>
             <select class="form-select" name="day" required>
-                <option value="">Select Day</option>
-                <option value="Monday" {% if entry[5] == 'Monday' %}selected{% endif %}>Monday</option>
-                <option value="Tuesday" {% if entry[5] == 'Tuesday' %}selected{% endif %}>Tuesday</option>
-                <option value="Wednesday" {% if entry[5] == 'Wednesday' %}selected{% endif %}>Wednesday</option>
-                <option value="Thursday" {% if entry[5] == 'Thursday' %}selected{% endif %}>Thursday</option>
-                <option value="Friday" {% if entry[5] == 'Friday' %}selected{% endif %}>Friday</option>
+              {% for d in ['Monday','Tuesday','Wednesday','Thursday','Friday'] %}
+                <option value="{{ d }}" {% if entry[6]==d %}selected{% endif %}>{{ d }}</option>
+              {% endfor %}
             </select>
           </div>
-          
-          <div class="form-group">
+        
+          <!-- Start -->
+         <div class="form-group">
             <label class="form-label">Start Time</label>
-            <input type="time" class="form-control" name="start_time" value="{{ entry[6] }}" required>
+            <input type="time" class="form-control" name="start_time" 
+            value="{{ entry[7][:5] if entry[7] else '' }}" required>
           </div>
-          
+
           <div class="form-group">
             <label class="form-label">End Time</label>
-            <input type="time" class="form-control" name="end_time" value="{{ entry[7] }}" required>
+            <input type="time" class="form-control" name="end_time" 
+             value="{{ entry[8][:5] if entry[8] else '' }}" required>
           </div>
-          
+
           <div class="form-group">
             <label class="form-label">Class Type</label>
             <select class="form-select" name="class_type" required>
-                <option value="Th" {% if entry[8] == 'Theory' %}selected{% endif %}>Theory</option>
-                <option value="Pr" {% if entry[8] == 'Practical' %}selected{% endif %}>Practical</option>
+                <option value="Th" {% if entry[9]=='Th' %}selected{% endif %}>Theory</option>
+                <option value="Pr" {% if entry[9]=='Pr' %}selected{% endif %}>Practical</option>
             </select>
           </div>
-        </div>
+
         
-        <div class="button-group">
-          <button type="submit" class="btn-dashboard"><span>Update Entry</span></button>
-          <a href="{{ url_for('timetable') }}" class="btn-cancel">Cancel</a>
+        </div>
+      
+        <div style="text-align: center;">
+          <button type="submit" class="btn-dashboard">Update Entry</button>
+          <a href="{{ url_for('timetable') }}" class="btn-dashboard">Cancel</a>
         </div>
       </form>
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+  const batch = document.getElementById('batch_id');
+  const dept = document.getElementById('department_id');
+  const semester = document.querySelector('[name="semester_id"]');
+  const sectionWrap = document.getElementById('sectionWrapper');
+  const section = document.getElementById('section_id');
+  const course = document.getElementById('course_id');
+
+  const savedSection = "{{ entry[5] or '' }}"; // section_id
+  const savedCourse = "{{ entry[1] or '' }}";  // course_id
+
+  function resetSection(){
+    section.innerHTML = '<option value="">Select Section</option>';
+    sectionWrap.style.display = 'none';
+    section.removeAttribute('required');
+  }
+
+  function loadSections(autoSelect=false){
+    resetSection();
+
+    if(!batch.value || !dept.value) return;
+
+    fetch(`/admin/check_sections?batch_id=${batch.value}&department_id=${dept.value}`)
+      .then(r => r.json())
+      .then(data => {
+        if(data.length){
+          sectionWrap.style.display = 'block';
+          section.setAttribute('required','required');
+
+          data.forEach(s=>{
+            const o = document.createElement('option');
+            o.value = s[0];
+            o.textContent = s[1];
+            if(autoSelect && savedSection != null && String(s[0]) === String(savedSection)){
+              o.selected = true;
+            }
+            section.appendChild(o);
+          });
+        }
+        // After loading sections, load courses
+        loadCourses();
+      });
+  }
+
+  function getSectionValue(){
+    return sectionWrap.style.display === 'block' ? (section.value || null) : null;
+  }
+
+  function loadCourses(){
+    if(!batch.value || !dept.value || !semester.value) {
+      course.innerHTML = '<option value="">-- Select Course --</option>';
+      course.disabled = true;
+      return;
+    }
+
+    fetch('/get_courses', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        batch_id: batch.value,
+        department_id: dept.value,
+        semester_id: semester.value,
+        section_id: getSectionValue()
+      })
+    })
+    .then(r => r.json())
+    .then(data => {
+      course.innerHTML = '<option value="">-- Select Course --</option>';
+      if(data.length){
+        data.forEach(c=>{
+          const o = document.createElement('option');
+          o.value = c.id;
+          o.textContent = c.name;
+          if(String(c.id) === String(savedCourse)){
+            o.selected = true;
+          }
+          course.appendChild(o);
+        });
+        course.disabled = false;
+      } else {
+        course.disabled = true;
+      }
+    })
+    .catch(err => {
+      console.error('Course fetch error:', err);
+      course.innerHTML = '<option value="">-- Select Course --</option>';
+      course.disabled = true;
+    });
+  }
+
+  batch.addEventListener('change', () => { loadSections(); });
+  dept.addEventListener('change', () => { loadSections(); });
+  semester.addEventListener('change', loadCourses);
+  section.addEventListener('change', loadCourses);
+
+  // auto load on edit open
+  loadSections(true);
+});
+</script>
+
 {% endblock %}

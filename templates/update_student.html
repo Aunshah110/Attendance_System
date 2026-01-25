@@ -234,6 +234,22 @@ deptSelect.addEventListener('change', loadSections);
 document.addEventListener('DOMContentLoaded', ()=>{
   loadSections(true);
 });
+
+document.querySelector('form').addEventListener('submit', function(e) {
+    const password = document.getElementById('new_password').value;
+    const confirm = document.getElementById('confirm_password').value;
+    
+    if (password && password.length < 8) {
+        alert('Password must be at least 8 characters long!');
+        e.preventDefault();
+        return false;
+    }
+    if (password && password !== confirm) {
+        alert('Passwords do not match!');
+        e.preventDefault();
+        return false;
+    }
+});
 </script>
 
 {% endblock %}

@@ -5,8 +5,7 @@ from functools import wraps
 import os
 import pandas as pd
 import re, csv, io
-from datetime import datetime, date 
-from psycopg2 import IntegrityError
+from datetime import datetime, time, date
 # from reportlab.lib.pagesizes import letter
 from io import BytesIO
 
@@ -109,6 +108,7 @@ def init_db():
             teacher_id TEXT,
             batch_id INTEGER,
             department_id INTEGER,
+            section_id INTEGER,
             semester_id INTEGER,
             start_date TEXT,
             end_date TEXT,
@@ -116,6 +116,7 @@ def init_db():
             FOREIGN KEY (teacher_id) REFERENCES users(id),
             FOREIGN KEY (batch_id) REFERENCES batches(id),
             FOREIGN KEY (department_id) REFERENCES departments(id),
+            FOREIGN KEY (section_id) REFERENCES sections(id),
             FOREIGN KEY (semester_id) REFERENCES semesters(id)
         )
     ''')
@@ -128,6 +129,7 @@ def init_db():
             batch_id INTEGER NOT NULL,
             department_id INTEGER NOT NULL,
             semester_id INTEGER NOT NULL,
+            section_id INTEGER,
             date TEXT NOT NULL,
             start_time TEXT NOT NULL,
             end_time TEXT NOT NULL,
@@ -136,6 +138,7 @@ def init_db():
             FOREIGN KEY (student_id) REFERENCES users(id),
             FOREIGN KEY (course_id) REFERENCES courses(id),
             FOREIGN KEY (batch_id) REFERENCES batches(id),
+            FOREIGN KEY (section_id) REFERENCES sections(id),
             FOREIGN KEY (department_id) REFERENCES departments(id),
             FOREIGN KEY (semester_id) REFERENCES semesters(id)
         )
@@ -148,6 +151,7 @@ def init_db():
             batch_id INTEGER,
             department_id INTEGER,
             semester_id INTEGER,
+            section_id INTEGER,
             day TEXT NOT NULL,
             start_time TEXT NOT NULL,
             end_time TEXT NOT NULL,
@@ -155,6 +159,7 @@ def init_db():
             FOREIGN KEY (course_id) REFERENCES courses(id),
             FOREIGN KEY (batch_id) REFERENCES batches(id),
             FOREIGN KEY (department_id) REFERENCES departments(id),
+            FOREIGN KEY (section_id) REFERENCES sections(id),
             FOREIGN KEY (semester_id) REFERENCES semesters(id)
         )
     ''')
@@ -575,42 +580,69 @@ def import_users():
     return redirect(url_for('manage_users'))
 
 
-
 @app.route('/get_courses', methods=['POST'])
+@role_required("admin", "teacher")
 def get_courses():
     data = request.get_json()
 
     batch_id = data.get('batch_id')
     department_id = data.get('department_id')
     semester_id = data.get('semester_id')
-
-    if not batch_id or not department_id or not semester_id:
-        return jsonify([])  # Return empty list if any filter missing
+    section_id = data.get('section_id')
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('''
-        SELECT id, name FROM courses 
-        WHERE batch_id = %s AND department_id = %s AND semester_id = %s
-    ''', (batch_id, department_id, semester_id))
-    filtered_courses = cursor.fetchall()
+
+    # ✔ If section is selected → fetch section-specific courses
+    if section_id:
+        cursor.execute("""
+            SELECT id, name
+            FROM courses
+            WHERE batch_id = %s
+              AND department_id = %s
+              AND semester_id = %s
+              AND section_id = %s
+            ORDER BY name
+        """, (batch_id, department_id, semester_id, section_id))
+
+    # ✔ If no section exists for batch+dept → fetch only NULL section courses
+    else:
+        cursor.execute("""
+            SELECT id, name
+            FROM courses
+            WHERE batch_id = %s
+              AND department_id = %s
+              AND semester_id = %s
+              AND section_id IS NULL
+            ORDER BY name
+        """, (batch_id, department_id, semester_id))
+
+    rows = cursor.fetchall()
     conn.close()
 
-    # Convert to JSON-friendly list of objects
-    return jsonify([{"id": c[0], "name": c[1]} for c in filtered_courses])
+    return jsonify([
+        {"id": r[0], "name": r[1]}
+        for r in rows
+    ])
 
 
 @app.route('/admin/allocate_course', methods=['GET', 'POST'])
 @role_required('admin')
 def allocate_course():
+
     if request.method == 'POST':
+
         course_id = request.form.get('course_id')
         teacher_id = request.form.get('teacher_id')
         batch_id = request.form.get('batch_id')
         department_id = request.form.get('department_id')
+        section_id = request.form.get('section_id') or None
         semester_id = request.form.get('semester_id')
+        start_date = request.form.get('start_date')
+        end_date = request.form.get('end_date')
+        force_update = request.form.get('force_update')
 
-        if not all([course_id, teacher_id, batch_id, department_id, semester_id]):
+        if not all([course_id, teacher_id, batch_id, department_id, semester_id, start_date, end_date]):
             flash("All fields are required.", "danger")
             return redirect(url_for('allocate_course'))
 
@@ -618,63 +650,66 @@ def allocate_course():
         cursor = conn.cursor()
 
         try:
-            conn.autocommit = False
+            if force_update:
 
-            cursor.execute("""
-                INSERT INTO course_allocations
-                (course_id, teacher_id, batch_id, department_id, semester_id)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (course_id, teacher_id, batch_id, department_id, semester_id))
+                cursor.execute("""
+                    UPDATE course_allocations
+                    SET teacher_id=%s, start_date=%s, end_date=%s
+                    WHERE course_id=%s
+                      AND batch_id=%s
+                      AND department_id=%s
+                      AND semester_id=%s
+                      AND (section_id=%s OR (%s IS NULL AND section_id IS NULL))
+                """, (
+                    teacher_id, start_date, end_date,
+                    course_id, batch_id, department_id, semester_id,
+                    section_id, section_id
+                ))
+
+                flash("Course allocation updated successfully!", "success")
+
+            else:
+                cursor.execute("""
+                    INSERT INTO course_allocations
+                    (course_id, teacher_id, batch_id, department_id, section_id, semester_id, start_date, end_date)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                """, (
+                    course_id, teacher_id, batch_id, department_id,
+                    section_id, semester_id, start_date, end_date
+                ))
+
+                flash("Course allocated successfully!", "success")
 
             conn.commit()
-            flash("Course allocated successfully!", "success")
-            return redirect(url_for('admin_dashboard'))
 
-        except IntegrityError:
+        except Exception as e:
             conn.rollback()
-
-            # Fetch already assigned teacher name
-            cursor.execute("""
-                SELECT u.name
-                FROM course_allocations ca
-                JOIN users u ON ca.teacher_id = u.id
-                WHERE ca.course_id = %s
-                  AND ca.batch_id = %s
-                  AND ca.department_id = %s
-                  AND ca.semester_id = %s
-                LIMIT 1
-            """, (course_id, batch_id, department_id, semester_id))
-
-            teacher = cursor.fetchone()
-            teacher_name = teacher[0] if teacher else "another teacher"
-
-            flash(
-                f"This course is already assigned to {teacher_name}.",
-                "warning"
-            )
-            return redirect(url_for('allocate_course'))
+            flash("Allocation failed. Please try again.", "danger")
+            print("ALLOCATE ERROR:", e)
 
         finally:
             cursor.close()
             conn.close()
 
+        return redirect(url_for('allocate_course'))
+
     # ---------- GET ----------
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute('SELECT * FROM courses')
+    cursor.execute('SELECT id, name FROM courses')
     courses = cursor.fetchall()
 
-    cursor.execute("SELECT * FROM users WHERE role = 'teacher'")
+    cursor.execute("SELECT id, name FROM users WHERE role='teacher'")
     teachers = cursor.fetchall()
 
-    cursor.execute('SELECT * FROM batches')
+    cursor.execute('SELECT id, name FROM batches')
     batches = cursor.fetchall()
 
-    cursor.execute('SELECT * FROM departments')
+    cursor.execute('SELECT id, name FROM departments')
     departments = cursor.fetchall()
 
-    cursor.execute('SELECT * FROM semesters')
+    cursor.execute('SELECT id, name FROM semesters')
     semesters = cursor.fetchall()
 
     conn.close()
@@ -687,6 +722,54 @@ def allocate_course():
         departments=departments,
         semesters=semesters
     )
+
+
+@app.route('/admin/check_course_allocation')
+@role_required('admin')
+def check_course_allocation():
+
+    course_id = request.args.get('course_id')
+    batch_id = request.args.get('batch_id')
+    department_id = request.args.get('department_id')
+    semester_id = request.args.get('semester_id')
+    section_id = request.args.get('section_id')
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    if section_id:
+        cur.execute("""
+            SELECT u.name
+            FROM course_allocations ca
+            JOIN users u ON ca.teacher_id = u.id
+            WHERE ca.course_id=%s
+              AND ca.batch_id=%s
+              AND ca.department_id=%s
+              AND ca.semester_id=%s
+              AND ca.section_id=%s
+            LIMIT 1
+        """, (course_id, batch_id, department_id, semester_id, section_id))
+    else:
+        cur.execute("""
+            SELECT u.name
+            FROM course_allocations ca
+            JOIN users u ON ca.teacher_id = u.id
+            WHERE ca.course_id=%s
+              AND ca.batch_id=%s
+              AND ca.department_id=%s
+              AND ca.semester_id=%s
+              AND ca.section_id IS NULL
+            LIMIT 1
+        """, (course_id, batch_id, department_id, semester_id))
+
+    row = cur.fetchone()
+    conn.close()
+
+    if row:
+        return jsonify({"exists": True, "teacher": row[0]})
+    else:
+        return jsonify({"exists": False})
+
 
 
 @app.route('/admin/view_students', methods=['GET', 'POST'])
@@ -834,15 +917,6 @@ def update_student(student_id):
 
         new_password = request.form.get('new_password')
         confirm_password = request.form.get('confirm_password')
-
-        # ---- Password validation ----
-        if new_password:
-            if len(new_password) < 8:
-                flash('Password must be at least 8 characters long!', 'error')
-                return redirect(url_for('update_student', student_id=student_id))
-            if new_password != confirm_password:
-                flash('Passwords do not match!', 'error')
-                return redirect(url_for('update_student', student_id=student_id))
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -1354,41 +1428,6 @@ def export_pdf(data, title):
         return redirect(url_for('admin_generate_reports'))
 
 
-
-@app.route('/view_attendance1', methods=['GET', 'POST'])
-def view_attendance1():
-    student_id = request.args.get('student_id')
-    course_id = request.args.get('course_id')
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    # Fetch courses for the selected student
-    cursor.execute('''
-        SELECT courses.id, courses.name
-        FROM attendance
-        JOIN courses ON attendance.course_id = courses.id
-        WHERE attendance.student_id = %s
-        GROUP BY courses.id
-    ''', (student_id,))
-    courses = cursor.fetchall()
-
-    # Fetch attendance data for the selected student and course
-    attendance_data = []
-    if request.method == 'POST':
-        course_id = request.form['course_id']
-        cursor.execute('''
-            SELECT date, status
-            FROM attendance
-            WHERE student_id = %s AND course_id = %s
-        ''', (student_id, course_id))
-        attendance_data = cursor.fetchall()
-
-    conn.close()
-    return render_template('view_attendance1.html', student_id=student_id, courses=courses, attendance_data=attendance_data, selected_course=course_id)
-
-
-
 @app.route('/register_admin', methods=['GET', 'POST'])
 def register_admin():
     # Check if an admin already exists
@@ -1615,168 +1654,83 @@ def mark_attendance():
     # POST → Mark Attendance
     # -------------------------------
     if request.method == 'POST':
+
         try:
             batch_id = request.form.get('batch_id')
             department_id = request.form.get('department_id')
             semester_id = request.form.get('semester_id')
+            section_id = request.form.get('section_id') or None
             course_id = request.form.get('course_id')
             attendance_date = request.form.get('date')
             start_time = request.form.get('start_time')
             end_time = request.form.get('end_time')
             class_type = request.form.get('class_type')
 
-            # 🔐 SECURITY: Validate course ownership again
+            # 🔐 Validate allocation with section
             cursor.execute("""
                 SELECT 1
                 FROM course_allocations ca
-                JOIN courses c ON c.id = ca.course_id
                 WHERE ca.teacher_id = %s
                   AND ca.course_id = %s
                   AND ca.batch_id = %s
-                  AND c.department_id = %s
-                  AND c.semester_id = %s
-            """, (teacher_id, course_id, batch_id, department_id, semester_id))
+                  AND ca.department_id = %s
+                  AND ca.semester_id = %s
+                  AND (ca.section_id=%s OR (%s IS NULL AND ca.section_id IS NULL))
+            """, (teacher_id, course_id, batch_id, department_id, semester_id, section_id, section_id))
 
             if not cursor.fetchone():
-                raise Exception("Invalid course selection or unauthorized access.")
-            
+                return flash("Unauthorized or invalid course allocation.", "warning")
 
             selected_date = date.fromisoformat(attendance_date)
-            today = date.today()
-
-            if selected_date > today:
-                msg = "Attendance cannot be marked for future dates."
-
-                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                    return jsonify(success=False, message=msg), 400
-                raise Exception(msg)
-                
-            if selected_date < today:
-                msg = "Attendance cannot be marked for previous dates."
-
-                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                    return jsonify(success=False, message=msg), 400
-
-                raise Exception(msg)
-
+            if selected_date != date.today():
+                return flash("Attendance can only be marked for today's date.", "warning")
 
             if not any(k.startswith('attendance_') for k in request.form):
-                raise Exception("No attendance data submitted.")
+                return flash("No attendance data submitted.", "warning")
 
-            # DUPLICATE ATTENDANCE CHECK
+            # DUPLICATE CHECK
             cursor.execute("""
-                SELECT 1
-                FROM attendance
-                WHERE batch_id = %s
-                  AND department_id = %s
-                  AND semester_id = %s
-                  AND course_id = %s
-                  AND date = %s
-                  AND start_time = %s
-                  AND end_time = %s
+                SELECT 1 FROM attendance
+                WHERE batch_id=%s AND department_id=%s AND semester_id=%s
+                  AND course_id=%s AND date=%s AND start_time=%s AND end_time=%s
+                  AND (section_id=%s OR (%s IS NULL AND section_id IS NULL))
                 LIMIT 1
-            """, (
-                batch_id,
-                department_id,
-                semester_id,
-                course_id,
-                attendance_date,
-                start_time,
-                end_time
-            ))
+            """, (batch_id, department_id, semester_id, course_id,
+                  attendance_date, start_time, end_time, section_id, section_id))
 
             if cursor.fetchone():
-                msg = "Attendance for the selected class and date has already been marked."
-
-                # If request came from fetch (AJAX)
-                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                    return jsonify(success=False, message=msg), 400
-
-                flash(msg, "warning")
-                conn.close()
-                return redirect(url_for('mark_attendance'))
+                return flash("Attendance already marked for this class.", "warning")
 
 
-            # If practical → fetch all timetable slots for that date
-            practical_slots = []
-
-            if class_type == "Practical":
-                cursor.execute("""
-                    SELECT start_time, end_time
-                    FROM timetable
-                    WHERE batch_id = %s
-                      AND department_id = %s
-                      AND semester_id = %s
-                      AND course_id = %s
-                      AND day = TO_CHAR(%s::date, 'Day')
-                      AND class_type = 'Pr'
-                    ORDER BY start_time
-                """, (batch_id, department_id, semester_id, course_id, attendance_date))
-
-                practical_slots = cursor.fetchall()
-
-            # Insert attendance
+            # INSERT ATTENDANCE
             for key, value in request.form.items():
                 if key.startswith('attendance_'):
                     student_id = key.split('_')[1]
-                    status = value
 
-                    # 🔹 Practical → insert for each slot
-                    if class_type == "Practical" and practical_slots:
-                        for st, et in practical_slots:
-                            cursor.execute("""
-                                INSERT INTO attendance
-                                (student_id, course_id, batch_id, department_id, semester_id,
-                                 date, start_time, end_time, status, class_type)
-                                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                            """, (
-                                student_id,
-                                course_id,
-                                batch_id,
-                                department_id,
-                                semester_id,
-                                attendance_date,
-                                st,
-                                et,
-                                status,
-                                "Practical"
-                            ))
-                    # 🔹 Theory / single class
-                    else:
-                        cursor.execute("""
-                            INSERT INTO attendance
-                            (student_id, course_id, batch_id, department_id, semester_id,
-                             date, start_time, end_time, status, class_type)
-                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                        """, (
-                            student_id,
-                            course_id,
-                            batch_id,
-                            department_id,
-                            semester_id,
-                            attendance_date,
-                            start_time,
-                            end_time,
-                            status,
-                            class_type
-                        ))
-
+                    cursor.execute("""
+                        INSERT INTO attendance
+                        (student_id, course_id, batch_id, department_id, semester_id,
+                         section_id, date, start_time, end_time, status, class_type)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    """, (
+                        student_id, course_id, batch_id, department_id, semester_id,
+                        section_id, attendance_date, start_time, end_time, value, class_type
+                    ))
 
             conn.commit()
-            # AJAX success response
-            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                return jsonify(success=True), 200
-
             flash("Attendance marked successfully!", "success")
+            return redirect(url_for('mark_attendance'))
 
         except Exception as e:
             conn.rollback()
             flash(str(e), "error")
+            return redirect(url_for('mark_attendance'))
 
         finally:
             conn.close()
 
-        return redirect(url_for('mark_attendance'))
+
+            return redirect(url_for('mark_attendance'))
 
     # -------------------------------
     # GET → Selection flow
@@ -1784,42 +1738,37 @@ def mark_attendance():
     batch_id = request.args.get('batch_id')
     department_id = request.args.get('department_id')
     semester_id = request.args.get('semester_id')
+    section_id = request.args.get('section_id')
     course_id = request.args.get('course_id')
 
     courses = []
     students = []
 
-    # Load courses ONLY if base filters are selected
     if batch_id and department_id and semester_id:
         cursor.execute("""
             SELECT c.id, c.name
             FROM courses c
             JOIN course_allocations ca ON ca.course_id = c.id
-            WHERE ca.teacher_id = %s
-              AND ca.batch_id = %s
-              AND c.department_id = %s
-              AND c.semester_id = %s
+            WHERE ca.teacher_id=%s
+              AND ca.batch_id=%s
+              AND ca.department_id=%s
+              AND ca.semester_id=%s
+              AND (ca.section_id=%s OR (%s IS NULL AND ca.section_id IS NULL))
             ORDER BY c.name
-        """, (teacher_id, batch_id, department_id, semester_id))
-
+        """, (teacher_id, batch_id, department_id, semester_id, section_id, section_id))
         courses = cursor.fetchall()
 
-        # 🧹 If course_id is not valid anymore → reset it
-        valid_course_ids = {str(c[0]) for c in courses}
-        if course_id not in valid_course_ids:
+        if course_id not in {str(c[0]) for c in courses}:
             course_id = None
 
-    # Load students ONLY if valid course is selected
     if course_id:
         cursor.execute("""
-            SELECT id, name
-            FROM users
-            WHERE role = 'student'
-              AND batch_id = %s
-              AND department_id = %s
+            SELECT id, name FROM users
+            WHERE role='student'
+              AND batch_id=%s AND department_id=%s
+              AND (section_id=%s OR (%s IS NULL AND section_id IS NULL))
             ORDER BY CAST(SUBSTRING(id FROM '(\\d+)$') AS INTEGER)
-        """, (batch_id, department_id))
-
+        """, (batch_id, department_id, section_id, section_id))
         students = cursor.fetchall()
 
     conn.close()
@@ -1834,8 +1783,10 @@ def mark_attendance():
         selected_batch=batch_id,
         selected_department=department_id,
         selected_semester=semester_id,
+        selected_section=section_id,
         selected_course=course_id
     )
+
 
 @app.route('/api/timetable_lookup')
 @role_required("teacher")
@@ -1848,24 +1799,43 @@ def timetable_lookup():
         department_id = request.args.get("department_id")
         semester_id = request.args.get("semester_id")
         course_id = request.args.get("course_id")
+        section_id = request.args.get("section_id")
         date_str = request.args.get("date")
 
         if not all([batch_id, department_id, semester_id, course_id, date_str]):
             return jsonify({"error": "Missing parameters"}), 400
 
+        # Convert empty section_id → None
+        section_id = int(section_id) if section_id and section_id.strip() != "" else None
+
         # Convert date → weekday
         day_name = datetime.strptime(date_str, "%Y-%m-%d").strftime("%A")
 
-        cursor.execute("""
-            SELECT id, start_time, end_time, class_type
-            FROM timetable
-            WHERE batch_id = %s
-              AND department_id = %s
-              AND semester_id = %s
-              AND course_id = %s
-              AND day = %s
-            ORDER BY start_time
-        """, (batch_id, department_id, semester_id, course_id, day_name))
+        # Build query depending on section presence
+        if section_id is None:
+            cursor.execute("""
+                SELECT id, start_time, end_time, class_type
+                FROM timetable
+                WHERE batch_id=%s
+                  AND department_id=%s
+                  AND semester_id=%s
+                  AND course_id=%s
+                  AND section_id IS NULL
+                  AND day=%s
+                ORDER BY start_time
+            """, (batch_id, department_id, semester_id, course_id, day_name))
+        else:
+            cursor.execute("""
+                SELECT id, start_time, end_time, class_type
+                FROM timetable
+                WHERE batch_id=%s
+                  AND department_id=%s
+                  AND semester_id=%s
+                  AND course_id=%s
+                  AND section_id=%s
+                  AND day=%s
+                ORDER BY start_time
+            """, (batch_id, department_id, semester_id, course_id, section_id, day_name))
 
         rows = cursor.fetchall()
 
@@ -1904,22 +1874,22 @@ app.jinja_env.filters['convert_to_12h'] = convert_to_12h
 @app.route('/admin/timetable', methods=['GET', 'POST'])
 @role_required("admin")
 def timetable():
-    # Initialize all template variables at the start
+
     courses = []
     batches = []
     departments = []
     semesters = []
     timetable_data = []
+
     selected_batch = None
     selected_department = None
     selected_semester = None
+    selected_section = None
 
-    # Connect to database once
     conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
-        # Always fetch dropdown data
         cursor.execute('SELECT * FROM courses')
         courses = cursor.fetchall()
         cursor.execute('SELECT * FROM batches')
@@ -1930,70 +1900,72 @@ def timetable():
         semesters = cursor.fetchall()
 
         if request.method == 'POST':
+
+            # ============================
+            # GENERATE TIMETABLE
+            # ============================
             if 'generate_table' in request.form:
+
                 batch_id = request.form['batch_id']
                 department_id = request.form['department_id']
                 semester_id = request.form['semester_id']
+                section_id = request.form.get('section_id')
+
                 selected_batch = batch_id
                 selected_department = department_id
                 selected_semester = semester_id
+                selected_section = section_id
 
-                # Get all possible time slots first
-                cursor.execute('''
+                section_filter = "AND t.section_id = %s" if section_id else "AND t.section_id IS NULL"
+                params = [batch_id, department_id, semester_id]
+                if section_id:
+                    params.append(section_id)
+
+                cursor.execute(f'''
                     SELECT DISTINCT start_time, end_time 
-                    FROM timetable 
-                    WHERE batch_id = %s AND department_id = %s AND semester_id = %s
+                    FROM timetable t
+                    WHERE t.batch_id=%s AND t.department_id=%s AND t.semester_id=%s
+                    {section_filter}
                     ORDER BY start_time
-                ''', (batch_id, department_id, semester_id))
+                ''', params)
                 time_slots = cursor.fetchall()
-                
-                # Get timetable data organized by day
-                timetable_by_day = {
-                    'Monday': {},
-                    'Tuesday': {},
-                    'Wednesday': {},
-                    'Thursday': {},
-                    'Friday': {}
-                }
-                cursor.execute('''
-                SELECT c.name, t.day, t.start_time, t.end_time, u.name as teacher_name, t.class_type, t.id as entry_id
-                FROM timetable t
-                JOIN courses c ON t.course_id = c.id
-                LEFT JOIN course_allocations ca ON ca.course_id = t.course_id 
-                AND ca.batch_id = t.batch_id 
-                AND ca.department_id = t.department_id 
-                AND ca.semester_id = t.semester_id
-                LEFT JOIN users u ON ca.teacher_id = u.id AND u.role = 'teacher'
-                WHERE t.batch_id = %s AND t.department_id = %s AND t.semester_id = %s
-                ORDER BY t.start_time
-                ''', (batch_id, department_id, semester_id))    
 
-                for entry in cursor.fetchall():
-                    day = entry[1]
-                    time_key = f"{entry[2]}-{entry[3]}"
-                    timetable_by_day[day][time_key] = {
-                    'course': entry[0],
-                    'teacher': entry[4],
-                    'class_type': entry[5],
-                    'entry_id': entry[6]  # Add entry_id to the data
-                }   
+                timetable_by_day = {d: {} for d in ['Monday','Tuesday','Wednesday','Thursday','Friday']}
 
-                
-                # Prepare data for template
-                timetable_data = []
-                for start_time, end_time in time_slots:
-                    time_key = f"{start_time}-{end_time}"
-                    row = {
-                        'start_time': start_time,
-                        'end_time': end_time,
-                        'days': {}
+                cursor.execute(f'''
+                    SELECT c.name, t.day, t.start_time, t.end_time, u.name, t.class_type, t.id
+                    FROM timetable t
+                    JOIN courses c ON t.course_id = c.id
+                    LEFT JOIN course_allocations ca 
+                        ON ca.course_id=t.course_id AND ca.batch_id=t.batch_id 
+                        AND ca.department_id=t.department_id AND ca.semester_id=t.semester_id
+                    LEFT JOIN users u ON ca.teacher_id=u.id AND u.role='teacher'
+                    WHERE t.batch_id=%s AND t.department_id=%s AND t.semester_id=%s
+                    {section_filter}
+                    ORDER BY t.start_time
+                ''', params)
+
+                for e in cursor.fetchall():
+                    day = e[1]
+                    key = f"{e[2]}-{e[3]}"
+                    timetable_by_day[day][key] = {
+                        'course': e[0],
+                        'teacher': e[4],
+                        'class_type': e[5],
+                        'entry_id': e[6]
                     }
-                    for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']:
-                        row['days'][day] = timetable_by_day[day].get(time_key, None)
+
+                timetable_data = []
+                for s, e in time_slots:
+                    key = f"{s}-{e}"
+                    row = {'start_time': s, 'end_time': e, 'days': {}}
+                    for d in timetable_by_day:
+                        row['days'][d] = timetable_by_day[d].get(key)
                     timetable_data.append(row)
 
+                    # ADD ENTRY
+            # ============================
             else:
-                # Add new timetable entry with class_type
                 course_id = request.form['course_id']
                 batch_id = request.form['batch_id']
                 department_id = request.form['department_id']
@@ -2001,13 +1973,36 @@ def timetable():
                 day = request.form['day']
                 start_time = request.form['start_time']
                 end_time = request.form['end_time']
-                class_type = request.form['class_type']  # New field
+                class_type = request.form['class_type']
+
+                section_id = request.form.get('section_id')
+
+                # convert empty string to None
+                if not section_id:
+                    section_id = None
+
+
+                if start_time >= end_time:
+                    flash('End time must be greater than Start time!', 'danger')
+                    return redirect(url_for('timetable'))
 
                 cursor.execute('''
-                    INSERT INTO timetable (course_id, batch_id, department_id, semester_id, 
-                                         day, start_time, end_time, class_type)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                ''', (course_id, batch_id, department_id, semester_id, 
+                    SELECT 1 FROM timetable
+                    WHERE batch_id=%s AND department_id=%s AND semester_id=%s
+                      AND (section_id IS NOT DISTINCT FROM %s)
+                      AND day=%s AND start_time=%s AND end_time=%s AND class_type=%s
+                ''', (batch_id, department_id, semester_id, section_id,
+                      day, start_time, end_time, class_type))
+
+                if cursor.fetchone():
+                    flash('Duplicate timetable entry already exists!', 'warning')
+                    return redirect(url_for('timetable'))
+
+                cursor.execute('''
+                    INSERT INTO timetable 
+                    (course_id,batch_id,department_id,semester_id,section_id,day,start_time,end_time,class_type)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ''', (course_id, batch_id, department_id, semester_id, section_id,
                       day, start_time, end_time, class_type))
                 conn.commit()
                 flash('Timetable entry added successfully!', 'success')
@@ -2015,69 +2010,126 @@ def timetable():
     finally:
         conn.close()
 
-    return render_template('timetable.html', 
-                         courses=courses, 
-                         batches=batches, 
-                         departments=departments, 
-                         semesters=semesters, 
-                         timetable_data=timetable_data,
-                         selected_batch=selected_batch, 
-                         selected_department=selected_department, 
-                         selected_semester=selected_semester)
-
+    return render_template(
+        'timetable.html',
+        courses=courses,
+        batches=batches,
+        departments=departments,
+        semesters=semesters,
+        timetable_data=timetable_data,
+        selected_batch=selected_batch,
+        selected_department=selected_department,
+        selected_semester=selected_semester,
+        selected_section=selected_section
+    )
 
 @app.route('/admin/edit_timetable/<int:timetable_id>', methods=['GET', 'POST'])
 @role_required("admin")
 def edit_timetable(timetable_id):
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Fetch the current timetable entry
-    cursor.execute('''
-        SELECT * FROM timetable WHERE id = %s
-    ''', (timetable_id,))
+
+    # ================= FETCH CURRENT ENTRY =================
+    cursor.execute('SELECT * FROM timetable WHERE id=%s', (timetable_id,))
     entry = cursor.fetchone()
-    
-    # Fetch dropdown data
-    cursor.execute('SELECT * FROM courses')
+
+    if not entry:
+        conn.close()
+        flash('Timetable entry not found!', 'danger')
+        return redirect(url_for('timetable'))
+
+    # ================= DROPDOWNS =================
+    cursor.execute('SELECT id, name FROM courses ORDER BY name')
     courses = cursor.fetchall()
-    cursor.execute('SELECT * FROM batches')
+
+    cursor.execute('SELECT id, name FROM batches ORDER BY name')
     batches = cursor.fetchall()
-    cursor.execute('SELECT * FROM departments')
+
+    cursor.execute('SELECT id, name FROM departments ORDER BY name')
     departments = cursor.fetchall()
-    cursor.execute('SELECT * FROM semesters')
+
+    cursor.execute('SELECT id, name FROM semesters ORDER BY name')
     semesters = cursor.fetchall()
-    
+
+    # ================= UPDATE =================
     if request.method == 'POST':
-        # Update the timetable entry
+
         course_id = request.form['course_id']
         batch_id = request.form['batch_id']
         department_id = request.form['department_id']
         semester_id = request.form['semester_id']
+
+        section_id = request.form.get('section_id')
+        if not section_id:
+            section_id = None   # ✅ critical fix
+
         day = request.form['day']
         start_time = request.form['start_time']
         end_time = request.form['end_time']
         class_type = request.form['class_type']
-        
+
+        # -------- TIME VALIDATION --------
+        if start_time >= end_time:
+            flash('End time must be greater than Start time!', 'danger')
+            return redirect(url_for('edit_timetable', timetable_id=timetable_id))
+
+        # -------- DUPLICATE CHECK (EXCEPT ITSELF) --------
         cursor.execute('''
-            UPDATE timetable 
-            SET course_id = %s, batch_id = %s, department_id = %s, semester_id = %s,
-                day = %s, start_time = %s, end_time = %s, class_type = %s
-            WHERE id = %s
-        ''', (course_id, batch_id, department_id, semester_id, 
-              day, start_time, end_time, class_type, timetable_id))
+            SELECT 1 FROM timetable
+            WHERE batch_id=%s
+              AND department_id=%s
+              AND semester_id=%s
+              AND (section_id IS NOT DISTINCT FROM %s)
+              AND day=%s
+              AND start_time=%s
+              AND end_time=%s
+              AND class_type=%s
+              AND id <> %s
+        ''', (
+            batch_id, department_id, semester_id, section_id,
+            day, start_time, end_time, class_type, timetable_id
+        ))
+
+        if cursor.fetchone():
+            flash('This timetable entry already exists for selected values!', 'warning')
+            return redirect(url_for('edit_timetable', timetable_id=timetable_id))
+
+        # -------- UPDATE --------
+        cursor.execute('''
+            UPDATE timetable
+            SET course_id=%s,
+                batch_id=%s,
+                department_id=%s,
+                semester_id=%s,
+                section_id=%s,
+                day=%s,
+                start_time=%s,
+                end_time=%s,
+                class_type=%s
+            WHERE id=%s
+        ''', (
+            course_id, batch_id, department_id, semester_id, section_id,
+            day, start_time, end_time, class_type, timetable_id
+        ))
+
         conn.commit()
         conn.close()
-        # flash('Timetable entry updated successfully!', 'success')
+
+        flash('Timetable entry updated successfully!', 'success')
         return redirect(url_for('timetable'))
-    
+
     conn.close()
-    return render_template('edit_timetable.html', 
-                         entry=entry,
-                         courses=courses,
-                         batches=batches,
-                         departments=departments,
-                         semesters=semesters)
+
+    return render_template(
+        'edit_timetable.html',
+        entry=entry,
+        courses=courses,
+        batches=batches,
+        departments=departments,
+        semesters=semesters
+    )
+
 
 @app.route('/admin/delete_timetable/<int:timetable_id>')
 @role_required("admin")
@@ -2093,151 +2145,153 @@ def delete_timetable(timetable_id):
 @app.route('/timetable/view', methods=['GET', 'POST'])
 @role_required("student", "teacher")
 def view_timetable():
-    if 'role' not in session or session['role'] not in ['teacher', 'student']:
-        flash('Unauthorized: Teachers and Students only.', 'danger')
-        return redirect(url_for('home'))
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Template vars
     batches = []
     departments = []
     semesters = []
     timetable_data = []
+
     selected_batch = None
     selected_department = None
+    selected_section = None
     selected_semester = None
+
     batch_name = None
     department_name = None
+    section_name = None
 
     try:
-        # Load dropdown lists (assumes rows are tuples: (id, name, ...))
-        cursor.execute('SELECT * FROM batches')
-        batches = cursor.fetchall()          # list of tuples
-        cursor.execute('SELECT * FROM departments')
+        cursor.execute('SELECT id, name FROM batches ORDER BY name')
+        batches = cursor.fetchall()
+
+        cursor.execute('SELECT id, name FROM departments ORDER BY name')
         departments = cursor.fetchall()
-        cursor.execute('SELECT * FROM semesters')
+
+        cursor.execute('SELECT id, name FROM semesters ORDER BY id')
         semesters = cursor.fetchall()
 
-        # If student -> lock their batch & department from users table
-        if session.get('role') == 'student':
+        # ================= STUDENT AUTO LOCK =================
+        if session['role'] == 'student':
             cursor.execute("""
-                SELECT batch_id, department_id
-                FROM users
-                WHERE id = %s AND role = 'student'
+                SELECT u.batch_id, u.department_id, u.section_id,
+                       b.name, d.name, s.name
+                FROM users u
+                JOIN batches b ON b.id = u.batch_id
+                JOIN departments d ON d.id = u.department_id
+                LEFT JOIN sections s ON s.id = u.section_id
+                WHERE u.id = %s AND u.role='student'
                 LIMIT 1
             """, (session['user_id'],))
-            student_row = cursor.fetchone()
-            if not student_row:
-                flash('Student record not found.', 'danger')
-                return redirect(url_for('dashboard'))
 
-            # student_row is a tuple like (batch_id, department_id)
-            sid_batch = student_row[0]
-            sid_dept = student_row[1]
-
-            # Normalize to strings for template comparisons
-            selected_batch = str(sid_batch) if sid_batch is not None else None
-            selected_department = str(sid_dept) if sid_dept is not None else None
-
-            # Retrieve human-readable names for display (safe fallback to lists)
-            cursor.execute('SELECT name FROM batches WHERE id = %s LIMIT 1', (sid_batch,))
             r = cursor.fetchone()
-            batch_name = r[0] if r and r[0] is not None else None
+            if not r:
+                flash("Student profile not found.", "danger")
+                return redirect(url_for('home'))
 
-            cursor.execute('SELECT name FROM departments WHERE id = %s LIMIT 1', (sid_dept,))
-            r = cursor.fetchone()
-            department_name = r[0] if r and r[0] is not None else None
+            selected_batch = str(r[0])
+            selected_department = str(r[1])
+            selected_section = str(r[2]) if r[2] else None
 
-        # Handle form submission
+            batch_name = r[3]
+            department_name = r[4]
+            section_name = r[5]
+
+        # ================= FORM SUBMIT =================
         if request.method == 'POST' and 'generate_table' in request.form:
-            semester_id = request.form.get('semester_id')
-            selected_semester = semester_id
 
-            # Determine which batch/department to use
-            if session.get('role') == 'student':
-                # Ensure we have the locked values
-                batch_id = selected_batch
-                department_id = selected_department
+            selected_semester = request.form.get('semester_id')
+
+            if session['role'] == 'teacher':
+                selected_batch = request.form.get('batch_id')
+                selected_department = request.form.get('department_id')
+                selected_section = request.form.get('section_id') or None
+
+            if not (selected_batch and selected_department and selected_semester):
+                flash("Please select all required fields.", "warning")
+
             else:
-                batch_id = request.form.get('batch_id')
-                department_id = request.form.get('department_id')
+                # --------- TIME SLOTS ----------
+                if selected_section:
+                    cursor.execute('''
+                        SELECT DISTINCT start_time, end_time
+                        FROM timetable
+                        WHERE batch_id=%s AND department_id=%s
+                          AND semester_id=%s AND section_id=%s
+                        ORDER BY start_time
+                    ''', (selected_batch, selected_department, selected_semester, selected_section))
+                else:
+                    cursor.execute('''
+                        SELECT DISTINCT start_time, end_time
+                        FROM timetable
+                        WHERE batch_id=%s AND department_id=%s
+                          AND semester_id=%s AND section_id IS NULL
+                        ORDER BY start_time
+                    ''', (selected_batch, selected_department, selected_semester))
 
-            # Basic validation
-            if not (batch_id and department_id and semester_id):
-                flash('Please select batch, department and semester.', 'warning')
-            else:
-                # Fetch time slots for that B/D/S
-                cursor.execute('''
-                    SELECT DISTINCT start_time, end_time
-                    FROM timetable
-                    WHERE batch_id = %s AND department_id = %s AND semester_id = %s
-                    ORDER BY start_time
-                ''', (batch_id, department_id, semester_id))
-                time_slots = cursor.fetchall()  # list of tuples (start_time, end_time)
+                time_slots = cursor.fetchall()
 
-                # Prepare empty structure for days
-                timetable_by_day = {d: {} for d in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']}
+                timetable_by_day = {d: {} for d in ['Monday','Tuesday','Wednesday','Thursday','Friday']}
 
-                # Fetch timetable entries
-                cursor.execute('''
-                    SELECT c.name, t.day, t.start_time, t.end_time,
-                           u.name AS teacher_name, t.class_type, t.id AS entry_id
-                    FROM timetable t
-                    JOIN courses c ON t.course_id = c.id
-                    LEFT JOIN course_allocations ca ON ca.course_id = t.course_id
-                         AND ca.batch_id = t.batch_id
-                         AND ca.department_id = t.department_id
-                         AND ca.semester_id = t.semester_id
-                    LEFT JOIN users u ON ca.teacher_id = u.id AND u.role = 'teacher'
-                    WHERE t.batch_id = %s AND t.department_id = %s AND t.semester_id = %s
-                    ORDER BY t.start_time
-                ''', (batch_id, department_id, semester_id))
+                # --------- MAIN DATA ----------
+                if selected_section:
+                    cursor.execute('''
+                        SELECT c.name, t.day, t.start_time, t.end_time,
+                               u.name, t.class_type
+                        FROM timetable t
+                        JOIN courses c ON c.id=t.course_id
+                        LEFT JOIN course_allocations ca
+                          ON ca.course_id=t.course_id
+                         AND ca.batch_id=t.batch_id
+                         AND ca.department_id=t.department_id
+                         AND ca.semester_id=t.semester_id
+                        LEFT JOIN users u ON u.id=ca.teacher_id AND u.role='teacher'
+                        WHERE t.batch_id=%s AND t.department_id=%s
+                          AND t.semester_id=%s AND t.section_id=%s
+                        ORDER BY t.start_time
+                    ''', (selected_batch, selected_department, selected_semester, selected_section))
+                else:
+                    cursor.execute('''
+                        SELECT c.name, t.day, t.start_time, t.end_time,
+                               u.name, t.class_type
+                        FROM timetable t
+                        JOIN courses c ON c.id=t.course_id
+                        LEFT JOIN course_allocations ca
+                          ON ca.course_id=t.course_id
+                         AND ca.batch_id=t.batch_id
+                         AND ca.department_id=t.department_id
+                         AND ca.semester_id=t.semester_id
+                        LEFT JOIN users u ON u.id=ca.teacher_id AND u.role='teacher'
+                        WHERE t.batch_id=%s AND t.department_id=%s
+                          AND t.semester_id=%s AND t.section_id IS NULL
+                        ORDER BY t.start_time
+                    ''', (selected_batch, selected_department, selected_semester))
 
                 rows = cursor.fetchall()
-                # rows: list of tuples (course_name, day, start_time, end_time, teacher_name, class_type, entry_id)
-                for course_name, day, start_time, end_time, teacher_name, class_type, entry_id in rows:
-                    time_key = f"{start_time}-{end_time}"
-                    timetable_by_day[day][time_key] = {
-                        'course': course_name,
-                        'teacher': teacher_name,
-                        'class_type': class_type,
-                        'entry_id': entry_id,
+
+                for c, day, st, et, teacher, ct in rows:
+                    key = f"{st}-{et}"
+                    timetable_by_day[day][key] = {
+                        'course': c,
+                        'teacher': teacher,
+                        'class_type': ct
                     }
 
-                # Flatten rows to template-friendly structure
-                for start_time, end_time in time_slots:
-                    time_key = f"{start_time}-{end_time}"
-                    row = {
-                        'start_time': start_time,
-                        'end_time': end_time,
-                        'days': {d: timetable_by_day[d].get(time_key) for d in ['Monday','Tuesday','Wednesday','Thursday','Friday']}
-                    }
-                    timetable_data.append(row)
-
-                # If batch_name/department_name not already set (teacher path), derive them for display
-                if not batch_name:
-                    # try to find in batches list
-                    for b in batches:
-                        # assume batches rows start with id then name
-                        if str(b[0]) == str(batch_id):
-                            batch_name = b[1]
-                            break
-                if not department_name:
-                    for d in departments:
-                        if str(d[0]) == str(department_id):
-                            department_name = d[1]
-                            break
+                for st, et in time_slots:
+                    key = f"{st}-{et}"
+                    timetable_data.append({
+                        'start_time': st,
+                        'end_time': et,
+                        'days': {d: timetable_by_day[d].get(key) for d in timetable_by_day}
+                    })
 
     except Exception as e:
-        flash(f'Error loading timetable: {str(e)}', 'error')
+        flash(f"Timetable error: {str(e)}", "danger")
 
     finally:
-        try:
-            cursor.close()
-        except:
-            pass
+        cursor.close()
         conn.close()
 
     return render_template(
@@ -2248,10 +2302,12 @@ def view_timetable():
         timetable_data=timetable_data,
         selected_batch=selected_batch,
         selected_department=selected_department,
+        selected_section=selected_section,
         selected_semester=selected_semester,
         batch_name=batch_name,
         department_name=department_name,
-        user_role=session.get('role')
+        section_name=section_name,
+        user_role=session['role']
     )
 
     
@@ -2259,84 +2315,144 @@ def view_timetable():
 @app.route('/student/view_attendance', methods=['GET', 'POST'])
 @role_required("student")
 def view_attendance():
-    student_id = session.get('user_id')  # Get logged-in student's ID
 
+    student_id = session.get('user_id')
     if not student_id:
-        return "No student logged in (session empty)", 400
+        return "Unauthorized", 401
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Fetch student details with LEFT JOIN (to avoid null join issues)
-    cursor.execute('''
-        SELECT users.id, users.name, 
-               batches.name AS batch_name, 
-               departments.name AS dept_name,
-               users.batch_id, users.department_id
-        FROM users
-        LEFT JOIN batches ON users.batch_id = batches.id
-        LEFT JOIN departments ON users.department_id = departments.id
-        WHERE users.id = %s
-    ''', (student_id,))
-    student = cursor.fetchone()
+    try:
+        # ================= STUDENT PROFILE =================
+        cursor.execute("""
+            SELECT u.id, u.name,
+                   b.name AS batch_name,
+                   d.name AS dept_name,
+                   s.name AS section_name,
+                   u.batch_id, u.department_id, u.section_id
+            FROM users u
+            LEFT JOIN batches b ON u.batch_id = b.id
+            LEFT JOIN departments d ON u.department_id = d.id
+            LEFT JOIN sections s ON u.section_id = s.id
+            WHERE u.id = %s AND u.role = 'student'
+            LIMIT 1
+        """, (student_id,))
+        student = cursor.fetchone()
 
-    if not student:
+        if not student:
+            return "Student record not found", 404
+
+        (
+            stu_id, stu_name,
+            batch_name, dept_name, section_name,
+            batch_id, dept_id, section_id
+        ) = student
+
+        # ================= SEMESTERS =================
+        cursor.execute("SELECT id, name FROM semesters ORDER BY name")
+        semesters = cursor.fetchall()
+
+        courses = []
+        attendance_data = []
+        selected_semester = None
+        selected_course = None
+
+        # ================= FORM =================
+        if request.method == 'POST':
+
+            selected_semester = request.form.get('semester_id')
+            selected_course = request.form.get('course_id')
+
+            # ---------- COURSES (FILTERED BY SECTION IF EXISTS) ----------
+            if selected_semester:
+
+                if section_id:
+                    cursor.execute("""
+                        SELECT id, name
+                        FROM courses
+                        WHERE semester_id = %s
+                          AND batch_id = %s
+                          AND department_id = %s
+                          AND section_id = %s
+                        ORDER BY name
+                    """, (selected_semester, batch_id, dept_id, section_id))
+                else:
+                    cursor.execute("""
+                        SELECT id, name
+                        FROM courses
+                        WHERE semester_id = %s
+                          AND batch_id = %s
+                          AND department_id = %s
+                          AND section_id IS NULL
+                        ORDER BY name
+                    """, (selected_semester, batch_id, dept_id))
+
+                courses = cursor.fetchall()
+
+            # ---------- ATTENDANCE ----------
+            if selected_course and selected_semester:
+
+                if section_id:
+                    cursor.execute("""
+                        SELECT a.date, a.status, c.name, a.class_type, a.start_time, a.end_time
+                        FROM attendance a
+                        JOIN courses c ON a.course_id = c.id
+                        WHERE a.student_id = %s
+                          AND a.course_id = %s
+                          AND c.batch_id = %s
+                          AND c.department_id = %s
+                          AND c.section_id = %s
+                          AND c.semester_id = %s
+                        ORDER BY a.date DESC
+                    """, (student_id, selected_course, batch_id, dept_id, section_id, selected_semester))
+                else:
+                    cursor.execute("""
+                        SELECT a.date, a.status, c.name, a.class_type, a.start_time, a.end_time
+                        FROM attendance a
+                        JOIN courses c ON a.course_id = c.id
+                        WHERE a.student_id = %s
+                          AND a.course_id = %s
+                          AND c.batch_id = %s
+                          AND c.department_id = %s
+                          AND c.section_id IS NULL
+                          AND c.semester_id = %s
+                        ORDER BY a.date DESC
+                    """, (student_id, selected_course, batch_id, dept_id, selected_semester))
+
+                raw_data = cursor.fetchall()
+
+                for r in raw_data:
+                    def fmt(t):
+                        if not t:
+                            return ""
+                        if isinstance(t, time):
+                            return t.strftime("%I:%M %p")
+                        # if string like '13:30:00' or '13:30'
+                        try:
+                            return datetime.strptime(t[:5], "%H:%M").strftime("%I:%M %p")
+                        except:
+                            return t  # fallback (never crash)
+
+                    start = fmt(r[4])
+                    end = fmt(r[5])
+
+                    attendance_data.append((r[0], r[1], r[2], r[3], start, end))
+
+    finally:
+        cursor.close()
         conn.close()
-        return f"Student not found for user_id={student_id}", 404
 
-    # Unpack values
-    stu_id, stu_name, batch_name, dept_name, batch_id, dept_id = student
+    return render_template(
+        'view_attendance.html',
+        student=student,
+        semesters=semesters,
+        courses=courses,
+        attendance_data=attendance_data,
+        selected_semester=selected_semester,
+        selected_course=selected_course
+    )
 
-    # Fetch all semesters
-    cursor.execute('SELECT id, name FROM semesters ORDER BY name')
-    semesters = cursor.fetchall()
-
-    courses = []
-    attendance_data = []
-    selected_semester = None
-    selected_course = None
-
-    if request.method == 'POST':
-        selected_semester = request.form.get('semester_id')
-        selected_course = request.form.get('course_id')
-
-        if selected_semester:
-            # Filter courses by semester + student's batch + department
-            cursor.execute('''
-                SELECT id, name
-                FROM courses
-                WHERE semester_id = %s AND batch_id = %s AND department_id = %s
-                ORDER BY name
-            ''', (selected_semester, batch_id, dept_id))
-            courses = cursor.fetchall()
-
-        if selected_course:
-            # Fetch attendance
-            cursor.execute('''
-                SELECT date, status, courses.name, class_type, start_time, end_time
-                FROM attendance
-                JOIN courses ON attendance.course_id = courses.id
-                WHERE attendance.student_id = %s AND attendance.course_id = %s
-                ORDER BY date DESC
-            ''', (student_id, selected_course))
-            raw_data = cursor.fetchall()
-
-            # Format times
-            attendance_data = []
-            for entry in raw_data:
-                start = datetime.strptime(entry[4], "%H:%M").strftime("%I:%M %p") if entry[4] else ""
-                end = datetime.strptime(entry[5], "%H:%M").strftime("%I:%M %p") if entry[5] else ""
-                attendance_data.append((entry[0], entry[1], entry[2], entry[3], start, end))
-
-    conn.close()
-
-    return render_template('view_attendance.html',
-                           student=student,
-                           semesters=semesters,
-                           courses=courses,
-                           attendance_data=attendance_data,
-                           selected_semester=selected_semester,
-                           selected_course=selected_course)
 
 
 # Manage Batches
@@ -2995,6 +3111,6 @@ def convert_to_12h(time_str):
 
 
 if __name__ == '__main__':
-    #init_db()
+    init_db()
     #app.run(debug=True)
     app.run(host="0.0.0.0", port=5000, debug=True)

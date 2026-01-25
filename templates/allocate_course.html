@@ -97,27 +97,6 @@
     box-shadow: 0 0 0 3px rgba(255,210,74,0.25);
   }
 
-  /* BUTTON – SMALLER & PROFESSIONAL */
-  .btn-dashboard{
-    width: auto;
-    min-width: 220px;
-    max-width: 260px;
-    padding: 10px 16px;
-    border-radius: 10px;
-    font-size: 0.9rem;
-    margin: 1.2rem auto 0;
-    font-weight: 800;
-    letter-spacing: 0.6px;
-    background: linear-gradient(180deg, var(--yellow), #f6c95a);
-    border: 2px solid rgba(0,0,0,0.08);
-    transition: var(--transition);
-  }
-
-  .btn-dashboard:hover{
-    transform: translateY(-3px);
-    box-shadow: 0 12px 28px rgba(0,0,0,0.35);
-  }
-
   /* GRID */
   .row{
     display:flex;
@@ -135,6 +114,7 @@
     .col-md-6{ flex:1 1 48%; }
   }
 </style>
+<link rel="stylesheet" href="style.css">
 
 <div class="admin-wrapper">
   <div class="dashboard-card">
@@ -162,6 +142,15 @@
           </select>
         </div>
 
+        <div class="col-md-4 mb-3" id="section-wrapper" style="display:none;">
+          <label class="form-label">Section</label>
+          <select class="form-select" name="section_id" id="section_id">
+            <option value="">-- Select Section --</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
         <div class="col-md-4">
           <label class="form-label">Semester</label>
           <select class="form-select" name="semester_id" id="semester_id" required>
@@ -171,9 +160,7 @@
             {% endfor %}
           </select>
         </div>
-      </div>
 
-      <div class="row">
         <div class="col-md-4 mb-3">
           <label for="course_id" class="form-label">Course</label>
           <select class="form-select" id="course_id" name="course_id" required disabled>
@@ -183,16 +170,16 @@
 
         <div class="col-md-4">
           <label class="form-label">Start Date</label>
-          <input type="date" class="form-control" name="start_date" required>
-        </div>
-
-        <div class="col-md-4">
-          <label class="form-label">End Date</label>
-          <input type="date" class="form-control" name="end_date" required>
+          <input type="date" class="form-control" name="start_date" id="start_date" required>
         </div>
       </div>
 
       <div class="row">
+        <div class="col-md-4">
+          <label class="form-label">End Date</label>
+          <input type="date" class="form-control" name="end_date" id="end_date" required>
+        </div>
+
         <div class="col-md-6">
           <label class="form-label">Teacher</label>
           <select class="form-select" name="teacher_id" required>
@@ -203,58 +190,215 @@
           </select>
         </div>
       </div>
-
-      <button type="submit" class="btn-dashboard">Allocate Course</button>
+      <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
+        <button type="submit" class="btn-dashboard"><span>Allocate Course</span></button>
+        <a href="{{ url_for('home') }}" class="btn-dashboard"><span>Back</span></a>
+      </div>
     </form>
   </div>
 </div>
 
+<!-- Duplicate Allocation Modal -->
+<div id="duplicateModal" class="modal-overlay" aria-hidden="true">
+  <div class="modal-card">
+    <h3>Course Already Allocated</h3>
+
+    <p id="duplicateText">
+      This course is already allocated.
+    </p>
+
+    <div class="modal-actions">
+      <button class="btn-dashboard" id="confirmUpdate">
+        <span>Reallocate </span>
+      </button>
+      <button class="btn-dashboard cancel-btn" id="cancelUpdate">
+        <span>Cancel</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+{% set duplicate_teacher = none %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, msg in messages %}
+    {% if msg.startswith('DUPLICATE::') %}
+      {% set duplicate_teacher = msg.replace('DUPLICATE::','') %}
+    {% endif %}
+  {% endfor %}
+{% endwith %}
+
+<div id="flashData" data-duplicate-teacher="{{ duplicate_teacher or '' }}"></div>
+
+
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const batchSelect = document.getElementById('batch_id');
-    const departmentSelect = document.getElementById('department_id');
-    const semesterSelect = document.getElementById('semester_id');
-    const courseSelect = document.getElementById('course_id');
+document.addEventListener('DOMContentLoaded', () => {
 
-    function fetchCourses() {
-        const batch_id = batchSelect.value;
-        const department_id = departmentSelect.value;
-        const semester_id = semesterSelect.value;
+  const batchSelect = document.getElementById('batch_id');
+  const deptSelect = document.getElementById('department_id');
+  const sectionWrapper = document.getElementById('section-wrapper');
+  const sectionSelect = document.getElementById('section_id');
+  const semesterSelect = document.getElementById('semester_id');
+  const courseSelect = document.getElementById('course_id');
 
-        if(batch_id && department_id && semester_id){
-            fetch('/get_courses', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({batch_id, department_id, semester_id})
-            })
-            .then(response => response.json())
-            .then(data => {
-                courseSelect.innerHTML = '<option value="">-- Select Course --</option>';
-                if(data.length > 0){
-                    data.forEach(course => {
-                        const option = document.createElement('option');
-                        option.value = course.id;
-                        option.textContent = course.name;
-                        courseSelect.appendChild(option);
-                    });
-                    courseSelect.disabled = false;
-                } else {
-                    courseSelect.disabled = true;
-                }
-            })
-            .catch(err => {
-                console.error('Error fetching courses:', err);
-                courseSelect.disabled = true;
-            });
-        } else {
-            courseSelect.innerHTML = '<option value="">-- Select Course --</option>';
-            courseSelect.disabled = true;
-        }
+  const startDate = document.getElementById('start_date');
+  const endDate = document.getElementById('end_date');
+
+  const modal = document.getElementById('duplicateModal');
+  const dupText = document.getElementById('duplicateText');
+  const confirmUpdate = document.getElementById('confirmUpdate');
+  const cancelUpdate = document.getElementById('cancelUpdate');
+
+  const form = document.querySelector('form');
+
+  let updateMode = false;   // 🔥 only valid for current page load
+
+  /* ---------- SECTION ---------- */
+
+  function resetSection(){
+    sectionWrapper.style.display = 'none';
+    sectionSelect.innerHTML = '<option value="">-- Select Section --</option>';
+    sectionSelect.removeAttribute('required');
+  }
+
+  async function loadSections(){
+    resetSection();
+
+    const batch = batchSelect.value;
+    const dept = deptSelect.value;
+
+    if(!batch || !dept) return;
+
+    const res = await fetch(`/admin/check_sections?batch_id=${batch}&department_id=${dept}`);
+    const data = await res.json();
+
+    if(data.length){
+      sectionWrapper.style.display = 'block';
+      sectionSelect.setAttribute('required','required');
+
+      data.forEach(s=>{
+        const o = document.createElement('option');
+        o.value = s[0];
+        o.textContent = s[1];
+        sectionSelect.appendChild(o);
+      });
+    }
+  }
+
+  /* ---------- COURSES ---------- */
+
+  function fetchCourses(){
+    const batch = batchSelect.value;
+    const dept = deptSelect.value;
+    const sem = semesterSelect.value;
+    const sec = sectionSelect.value || null;
+
+    courseSelect.innerHTML = '<option value="">-- Select Course --</option>';
+    courseSelect.disabled = true;
+
+    if(!(batch && dept && sem)) return;
+
+    fetch('/get_courses',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        batch_id:batch,
+        department_id:dept,
+        semester_id:sem,
+        section_id:sec
+      })
+    })
+    .then(r=>r.json())
+    .then(data=>{
+      if(data.length){
+        data.forEach(c=>{
+          const o=document.createElement('option');
+          o.value=c.id;
+          o.textContent=c.name;
+          courseSelect.appendChild(o);
+        });
+        courseSelect.disabled=false;
+      }
+    });
+  }
+
+  /* ---------- DUPLICATE CHECK ---------- */
+
+  async function checkDuplicate(){
+
+    updateMode = false; // reset first
+
+    const course = courseSelect.value;
+    if(!course) return;
+
+    const batch = batchSelect.value;
+    const dept = deptSelect.value;
+    const sem = semesterSelect.value;
+    const sec = sectionSelect.value || '';
+
+    const res = await fetch(
+      `/admin/check_course_allocation?course_id=${course}&batch_id=${batch}&department_id=${dept}&semester_id=${sem}&section_id=${sec}`
+    );
+
+    const data = await res.json();
+
+    if(data.exists){
+      dupText.innerHTML =
+        `This course is already allocated to <strong>${data.teacher}</strong>.<br>
+         Do you want to update the allocation?`;
+
+      modal.classList.add('active');
+      modal.setAttribute('aria-hidden','false');
+    }
+  }
+
+  /* ---------- DATE VALIDATION ---------- */
+
+  function validateDates(){
+    if(!startDate.value || !endDate.value) return;
+
+    if(endDate.value <= startDate.value){
+      alert("End date must be after start date.");
+      endDate.value = '';
+    }
+  }
+
+  /* ---------- FORM SUBMIT CONTROL ---------- */
+
+  form.addEventListener('submit', (e)=>{
+
+    if(updateMode){
+      const hidden = document.createElement('input');
+      hidden.type = 'hidden';
+      hidden.name = 'force_update';
+      hidden.value = '1';
+      form.appendChild(hidden);
     }
 
-    batchSelect.addEventListener('change', fetchCourses);
-    departmentSelect.addEventListener('change', fetchCourses);
-    semesterSelect.addEventListener('change', fetchCourses);
+  });
+
+  /* ---------- MODAL ACTIONS ---------- */
+
+  confirmUpdate.addEventListener('click', ()=>{
+    updateMode = true;     // 🔥 allow update ONCE
+    modal.classList.remove('active');
+  });
+
+  cancelUpdate.addEventListener('click', ()=>{
+    window.location.reload();
+  });
+
+  /* ---------- EVENTS ---------- */
+
+  batchSelect.addEventListener('change', ()=>{ loadSections(); fetchCourses(); });
+  deptSelect.addEventListener('change', ()=>{ loadSections(); fetchCourses(); });
+  sectionSelect.addEventListener('change', fetchCourses);
+  semesterSelect.addEventListener('change', fetchCourses);
+
+  courseSelect.addEventListener('change', checkDuplicate);
+
+  startDate.addEventListener('change', validateDates);
+  endDate.addEventListener('change', validateDates);
+
 });
 </script>
 

@@ -78,30 +78,6 @@
     margin-bottom: 1.5rem;
   }
 
-  /* BUTTON – SMALLER & PROFESSIONAL */
- .btn-theme {
-    width: auto;
-    min-width: 220px;
-    max-width: 260px;
-    padding: 10px 16px;
-    border-radius: 10px;
-    font-size: 0.9rem;
-    margin: 1.2rem auto 0;
-    font-weight: 800;
-    letter-spacing: 0.6px;
-    background: linear-gradient(180deg, var(--yellow), #f6c95a);
-    border: 2px solid rgba(0,0,0,0.08);
-    transition: var(--transition);
-    text-decoration: none;
-    color: var(--black);
-}
-
-
- .btn-theme:hover{
-    transform: translateY(-3px);
-    box-shadow: 0 12px 28px rgba(0,0,0,0.35);
-  }
-
   /* Form fields */
   .form-control   { font-weight:600; color: var(--cream); }
 
@@ -173,63 +149,83 @@
     .table-custom { font-size: 11px; }
   }
 </style>
+<link rel="stylesheet" href="style.css">
 
 <div class="timetable-wrapper">
   <div class="card-custom">
-    <h2>Timetable</h2>
+      <h1 style="color: var(--yellow); text-align:center;">Timetable</h1>
 
-<form method="POST" class="mb-4">
-  <input type="hidden" name="generate_table" value="1">
+  <form method="POST" class="mb-4">
+    <input type="hidden" name="generate_table" value="1">
 
-  <div class="row g-3">
-    <!-- Batch -->
-    <div class="col-md-4">
-      <label class="form-label">Batch</label>
-      {% if user_role == 'student' %}
-        <div class="readonly-field">{{ batch_name or '—' }}</div>
-        <input type="hidden" name="batch_id" value="{{ selected_batch }}">
-      {% else %}
-        <select class="form-select" name="batch_id" required>
-          <option value="">Select Batch</option>
-          {% for batch in batches %}
-            <option value="{{ batch[0] }}" {% if selected_batch == batch[0]|string %}selected{% endif %}>{{ batch[1] }}</option>
+    <div class="row g-3 align-items-end justify-content-center">
+      <!-- Batch -->
+      <div class="col-12 col-sm-6 col-lg-3 d-flex flex-column">
+        <label class="form-label">Batch</label>
+        {% if user_role == 'student' %}
+          <div class="readonly-field">{{ batch_name or '—' }}</div>
+          <input type="hidden" name="batch_id" id="view_batch_id" value="{{ selected_batch }}">
+        {% else %}
+          <select class="form-select" name="batch_id" id="view_batch_id" required>
+            <option value="">Select Batch</option>
+            {% for batch in batches %}
+              <option value="{{ batch[0] }}" {% if selected_batch == batch[0]|string %}selected{% endif %}>{{ batch[1] }}</option>
+            {% endfor %}
+          </select>
+        {% endif %}
+      </div>
+
+      <!-- Department -->
+      <div class="col-12 col-sm-6 col-lg-3 d-flex flex-column">
+        <label class="form-label">Department</label>
+        {% if user_role == 'student' %}
+          <div class="readonly-field">{{ department_name or '—' }}</div>
+          <input type="hidden" name="department_id" id="view_department_id" value="{{ selected_department }}">
+        {% else %}
+          <select class="form-select" name="department_id" id="view_department_id" required>
+            <option value="">Select Department</option>
+            {% for department in departments %}
+              <option value="{{ department[0] }}" {% if selected_department == department[0]|string %}selected{% endif %}>{{ department[1] }}</option>
+            {% endfor %}
+          </select>
+        {% endif %}
+      </div>
+
+      <!-- Section -->
+      {% set show_section = (user_role == 'student' and selected_section is not none) or (user_role == 'teacher') %}
+      <div class="col-12 col-sm-6 col-lg-3" id="sectionWrapper"
+        {% if not show_section %}style="display:none;"{% endif %}>
+        <label class="form-label">Section</label>
+      
+        {% if user_role == 'student' %}
+          <div class="readonly-field">{{ section_name }}</div>
+          <input type="hidden" name="section_id" value="{{ selected_section }}">
+        {% else %}
+          <select class="form-select" name="section_id" id="section_id">
+            <option value="">Select Section</option>
+          </select>
+          <input type="hidden" id="selected_section_value" value="{{ selected_section or '' }}">
+        {% endif %}
+      </div>
+
+
+      <!-- Semester -->
+      <div class="col-12 col-sm-6 col-lg-3 d-flex flex-column">
+        <label class="form-label">Semester</label>
+        <select class="form-select" name="semester_id" id="view_semester_id" required>
+          <option value="">Select Semester</option>
+          {% for semester in semesters %}
+            <option value="{{ semester[0] }}" {% if selected_semester == semester[0]|string %}selected{% endif %}>{{ semester[1] }}</option>
           {% endfor %}
         </select>
-      {% endif %}
+      </div>
     </div>
 
-    <!-- Department -->
-    <div class="col-md-4">
-      <label class="form-label">Department</label>
-      {% if user_role == 'student' %}
-        <div class="readonly-field">{{ department_name or '—' }}</div>
-        <input type="hidden" name="department_id" value="{{ selected_department }}">
-      {% else %}
-        <select class="form-select" name="department_id" required>
-          <option value="">Select Department</option>
-          {% for department in departments %}
-            <option value="{{ department[0] }}" {% if selected_department == department[0]|string %}selected{% endif %}>{{ department[1] }}</option>
-          {% endfor %}
-        </select>
-      {% endif %}
+    <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
+      <button type="submit" class="btn-dashboard"><span>Show Timetable</span></button>
+      <a href="{{ url_for('home') }}" class="btn-dashboard"><span>Back</span></a>
     </div>
-
-    <!-- Semester -->
-    <div class="col-md-4">
-      <label class="form-label">Semester</label>
-      <select class="form-select" name="semester_id" required>
-        <option value="">Select Semester</option>
-        {% for semester in semesters %}
-          <option value="{{ semester[0] }}" {% if selected_semester == semester[0]|string %}selected{% endif %}>{{ semester[1] }}</option>
-        {% endfor %}
-      </select>
-    </div>
-  </div>
-
-  <div class="mt-3 text-center">
-    <button type="submit" class="btn-theme"><span>Generate Timetable</span></button>
-  </div>
-</form>
+  </form>
 
 
     <!-- Timetable Table -->
@@ -276,8 +272,8 @@
                            batch_id=selected_batch,
                            department_id=selected_department,
                            semester_id=selected_semester) }}"
-         class="btn-theme">
-        <span>Download as PDF</span>
+         class="btn-dashboard">
+        <span>Download PDF</span>
       </a>
     </div>
     {% else %}
@@ -288,5 +284,70 @@
     {% endif %}
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', ()=>{
+
+  const batch = document.getElementById('view_batch_id');
+  const dept = document.getElementById('view_department_id');
+
+  const wrap = document.getElementById('sectionWrapper');
+  const section = document.getElementById('section_id');
+
+  const selectedSectionValue =
+        document.getElementById('selected_section_value')?.value || '';
+
+  function reset(){
+    if(!section) return;
+    section.innerHTML = '<option value="">Select Section</option>';
+    section.removeAttribute('required');
+    wrap.style.display = 'none';
+  }
+
+  function load(){
+    reset();
+    if(!batch.value || !dept.value) return;
+
+    fetch(`/admin/check_sections?batch_id=${batch.value}&department_id=${dept.value}`)
+      .then(r => r.json())
+      .then(data => {
+
+        if(data.length && section){
+          wrap.style.display = 'block';
+          section.setAttribute('required','required');
+
+          data.forEach(s=>{
+            const o = document.createElement('option');
+            o.value = s[0];
+            o.textContent = s[1];
+
+            // ✅ keep selected after POST
+            if(selectedSectionValue && String(s[0]) === String(selectedSectionValue)){
+              o.selected = true;
+            }
+
+            section.appendChild(o);
+          });
+        }
+
+      });
+  }
+
+  if(batch && dept){
+    batch.addEventListener('change', ()=>{
+      document.getElementById('selected_section_value').value = '';
+      load();
+    });
+
+    dept.addEventListener('change', ()=>{
+      document.getElementById('selected_section_value').value = '';
+      load();
+    });
+
+    load(); // auto restore after submit
+  }
+
+});
+</script>
 
 {% endblock %}

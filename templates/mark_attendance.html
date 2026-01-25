@@ -84,27 +84,6 @@
     gap: clamp(16px, 2vw, 26px);
   }
 
-  /* BUTTON – SMALLER & PROFESSIONAL */
- .btn-dashboard{
-    width: auto;
-    min-width: 220px;
-    max-width: 260px;
-    padding: 10px 16px;
-    border-radius: 10px;
-    font-size: 0.9rem;
-    margin: 1.2rem auto 0;
-    font-weight: 800;
-    letter-spacing: 0.6px;
-    background: linear-gradient(180deg, var(--yellow), #f6c95a);
-    border: 2px solid rgba(0,0,0,0.08);
-    transition: var(--transition);
-  }
-
- .btn-dashboard:hover{
-    transform: translateY(-3px);
-    box-shadow: 0 12px 28px rgba(0,0,0,0.35);
-  }
-
 /* Modal CSS updates */
 .modal-overlay{
   position:fixed;
@@ -287,17 +266,20 @@
     table.table{ font-size:0.9rem; }
   }
 </style>
+<link rel="stylesheet" href="style.css">
 
 <div class="teacher-wrapper">
   <div class="dashboard-card" role="region" aria-label="Teacher dashboard">
     <div class="dashboard-inner">
+
+      <h1 style="color: var(--yellow); text-align:center;">Mark Attendance</h1>
 
       <!-- Fetch Students Form -->
       <form method="GET" class="mb-4">
         <div class="row g-3">
           <div class="col-md-3">
             <label for="batch_id" class="form-label">Batch</label>
-            <select class="form-select" id="batch_id" name="batch_id" required z>
+            <select class="form-select" id="batch_id" name="batch_id" required>
               <option value="">-- Select Batch --</option>
               {% for batch in batches %}
                 <option value="{{ batch[0] }}" {% if selected_batch == batch[0]|string %}selected{% endif %}>
@@ -308,7 +290,7 @@
           </div>
           <div class="col-md-3">
             <label for="department_id" class="form-label">Department</label>
-            <select class="form-select" id="department_id" name="department_id" required onchange="this.form.submit()">
+            <select class="form-select" id="department_id" name="department_id" required>
               <option value="">-- Select Department --</option>
               {% for department in departments %}
                 <option value="{{ department[0] }}" {% if selected_department == department[0]|string %}selected{% endif %}>
@@ -317,9 +299,13 @@
               {% endfor %}
             </select>
           </div>
+          <div class="col-md-3" id="sectionWrapper" style="display:none;">
+            <label class="form-label">Section</label>
+            <select class="form-select" id="section_id" name="section_id"></select>
+          </div>
           <div class="col-md-3">
             <label for="semester_id" class="form-label">Semester</label>
-            <select class="form-select" id="semester_id" name="semester_id" required onchange="this.form.submit()">
+            <select class="form-select" id="semester_id" name="semester_id" required>
               <option value="">-- Select Semester --</option>
               {% for semester in semesters %}
                 <option value="{{ semester[0] }}" {% if selected_semester == semester[0]|string %}selected{% endif %}>
@@ -344,21 +330,24 @@
             </select>
           </div>
         </div>
-        {% if courses %}
-          <div class="mt-3">
-            <button type="submit" class="btn-dashboard"><span>Fetch Students</span></button>
-          </div>
-        {% endif %}
+        
+        <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
+          <button type="submit" class="btn-dashboard"><span>Fetch Students</span></button>
+          <a href="{{ url_for('home') }}" class="btn-dashboard"><span>Back</span></a>
+        </div>
+
       </form>
 
       <!-- Attendance Form -->
       {% if students %}
       <h3 class="text-dark">Students</h3>
-      <form method="POST" id="attendanceForm">
+      <form id="attendanceForm" method="POST" action="{{ url_for('mark_attendance') }}">
         <input type="hidden" name="batch_id" value="{{ selected_batch }}">
         <input type="hidden" name="department_id" value="{{ selected_department }}">
         <input type="hidden" name="semester_id" value="{{ selected_semester }}">
         <input type="hidden" name="course_id" value="{{ selected_course }}">
+        <input type="hidden" name="section_id" id="attendance_section_id" value="{{ selected_section or '' }}">
+        <input type="hidden" name="timetable_entry_id" id="timetable_entry_id">
 
         <div class="row g-3 mb-3">
           <div class="col-md-3">
@@ -433,14 +422,19 @@
           </table>
         </div>
 
-        <div class="mt-3">
+        <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
           <button type="submit" class="btn-dashboard"><span>Mark Attendance</span></button>
         </div>
       </form>
+      {% elif courses == none %}
+        <div class="no-data-alert">
+            ⚠️ No records available
+        </div>
       {% endif %}
     </div>
   </div>
 </div>
+
 
 <!-- No Class Modal - Single OK button -->
 <div class="modal-overlay" id="noClassModal">
@@ -449,18 +443,6 @@
     <p>There is no class scheduled for this subject on the selected day.</p>
     <div class="single-modal-actions">
       <button id="modalOkBtn">OK</button>
-    </div>
-  </div>
-</div>
-
-<!-- Multi Class Confirmation Modal - Dual YES/NO buttons -->
-<div class="modal-overlay" id="multiClassModal">
-  <div class="modal-card">
-    <h3>Attendance Saved</h3>
-    <p>Do you want to mark attendance for other classes?</p>
-    <div class="dual-modal-actions">
-      <button id="yesNextClass">Yes</button>
-      <button id="noReload">No</button>
     </div>
   </div>
 </div>
@@ -488,17 +470,57 @@
   const batch = document.getElementById("batch_id");
   const department = document.getElementById("department_id");
   const semester = document.getElementById("semester_id");
+  const sectionWrap = document.getElementById("sectionWrapper");
+  const section = document.getElementById("section_id");
 
-  function resetCourseAndSubmit() {
-    const url = new URL(window.location.href);
-    url.searchParams.delete("course_id");   // remove stale course
-    window.location.href = url.pathname + "?" +
-      `batch_id=${batch.value}&department_id=${department.value}&semester_id=${semester.value}`;
+  function resetSection(){
+    section.innerHTML='';
+    sectionWrap.style.display='none';
   }
 
-  batch.addEventListener("change", resetCourseAndSubmit);
-  department.addEventListener("change", resetCourseAndSubmit);
+  function loadSections(){
+    resetSection();
+    if(!batch.value || !department.value) return;
+
+    fetch(`/admin/check_sections?batch_id=${batch.value}&department_id=${department.value}`)
+      .then(r=>r.json())
+      .then(data=>{
+        if(data.length){
+          section.innerHTML='<option value="">Select Section</option>';
+          data.forEach(s=>{
+            const o=document.createElement('option');
+            o.value=s[0]; o.textContent=s[1];
+            if(o.value === "{{ selected_section }}") o.selected=true;
+            section.appendChild(o);
+          });
+          sectionWrap.style.display='block';
+        }
+      });
+  }
+
+  batch.addEventListener("change", ()=>{loadSections(); resetCourseAndSubmit();});
+  department.addEventListener("change", ()=>{loadSections(); resetCourseAndSubmit();});
+  section.addEventListener("change", resetCourseAndSubmit);
   semester.addEventListener("change", resetCourseAndSubmit);
+
+  loadSections();
+  function resetCourseAndSubmit() {
+    const url = new URL(window.location.href);
+
+    url.searchParams.set("batch_id", batch.value);
+    url.searchParams.set("department_id", department.value);
+    url.searchParams.set("semester_id", semester.value);
+
+    if (sectionWrap.style.display !== "none" && section.value) {
+      url.searchParams.set("section_id", section.value);
+    } else {
+      url.searchParams.delete("section_id");
+    }
+
+    url.searchParams.delete("course_id");   // reset stale course
+
+    window.location.href = url.pathname + "?" + url.searchParams.toString();
+  }
 
 const dateInput = document.getElementById("date");
 const course = document.getElementById("course_id");
@@ -516,12 +538,17 @@ const modalOkBtn = document.getElementById("modalOkBtn");
 
 let timetableClasses = [];
 
-dateInput.addEventListener("change", fetchTimetable);
+if(dateInput){
+  dateInput.addEventListener("change", fetchTimetable);
+}
+
 
 function fetchTimetable() {
   if (!batch.value || !department.value || !semester.value || !course.value || !dateInput.value) return;
 
-  fetch(`/api/timetable_lookup?batch_id=${batch.value}&department_id=${department.value}&semester_id=${semester.value}&course_id=${course.value}&date=${dateInput.value}`)
+  const secParam = (sectionWrap.style.display !== "none" && section.value) ? section.value : "";
+  fetch(`/api/timetable_lookup?batch_id=${batch.value}&department_id=${department.value}&semester_id=${semester.value}&section_id=${secParam}&course_id=${course.value}&date=${dateInput.value}`)
+
     .then(res => res.json())
     .then(data => {
 
@@ -538,26 +565,27 @@ function fetchTimetable() {
       const allPractical = timetableClasses.every(c => c.class_type === "Pr");
 
       // ---- PRACTICAL BLOCK → MERGE TIMES ----
-      if (allPractical && timetableClasses.length > 1) {
-      
-        classNoWrapper.style.display = "none"; // no class switch
-      
+      if (allPractical) {
+        classNoWrapper.style.display = "none";
+
         const first = timetableClasses[0];
         const last = timetableClasses[timetableClasses.length - 1];
-      
+
         startTime.value = first.start_time;
         endTime.value = last.end_time;
-      
+
+        entryIdInput.value = first.entry_id; // ✅ mark practical block by first entry
+
         classType.innerHTML = "";
         const opt = document.createElement("option");
         opt.value = "Practical";
         opt.text = "Practical";
         classType.appendChild(opt);
         classType.value = "Practical";
-      
+
         dayField.value = data.day;
-      
       }
+
       // ---- THEORY OR MIXED → NORMAL FLOW ----
       else {
       
@@ -587,19 +615,21 @@ classNoSelect.addEventListener("change", () => {
   fillClassFields(classNoSelect.value);
 });
 
+const entryIdInput = document.getElementById("timetable_entry_id");
+
 function fillClassFields(index) {
-  currentClassIndex = parseInt(index);   // ✅ track active class
+  currentClassIndex = parseInt(index);
   const cls = timetableClasses[index];
   if (!cls) return;
 
   startTime.value = cls.start_time;
   endTime.value = cls.end_time;
 
-  // Map DB value to readable class type
+  entryIdInput.value = cls.entry_id;   // ✅ IMPORTANT
+
   const typeMap = { "Th": "Theory", "Pr": "Practical" };
   const mappedType = typeMap[cls.class_type] || cls.class_type;
 
-  // Populate class_type dropdown
   classType.innerHTML = "";
   ["Theory","Practical"].forEach(val => {
     const opt = document.createElement("option");
@@ -609,6 +639,7 @@ function fillClassFields(index) {
   });
   classType.value = mappedType;
 }
+
 
 // Reset fields when no class found
 function resetFields() {
@@ -620,25 +651,29 @@ function resetFields() {
   classNoWrapper.style.display = "none";
 }
 
-// Modal OK button click
-modalOkBtn.addEventListener("click", () => {
-  noClassModal.classList.remove("active");
-  resetFields();
+  // Modal OK button click
+  modalOkBtn.addEventListener("click", () => {
+    noClassModal.classList.remove("active");
+    resetFields();
 
-  // Redirect to same page with selected criteria
-  const url = new URL(window.location.href);
-  const params = new URLSearchParams();
-  if (batch.value) params.set("batch_id", batch.value);
-  if (department.value) params.set("department_id", department.value);
-  if (semester.value) params.set("semester_id", semester.value);
-  if (course.value) params.set("course_id", course.value);
+    // Redirect to same page with selected criteria
+    const url = new URL(window.location.href);
+    const params = new URLSearchParams();
+    if (batch.value) params.set("batch_id", batch.value);
+    if (department.value) params.set("department_id", department.value);
+    if (semester.value) params.set("semester_id", semester.value);
 
-  window.location.href = `${url.pathname}?${params.toString()}`;
-});
+    if (sectionWrap.style.display !== "none" && section.value) {
+      params.set("section_id", section.value);
+    }
+
+    if (course.value) params.set("course_id", course.value);
+
+    window.location.href = `${url.pathname}?${params.toString()}`;
+  });
 
 
 const attendanceForm = document.getElementById("attendanceForm");
-const multiClassModal = document.getElementById("multiClassModal");
 const yesNextClassBtn = document.getElementById("yesNextClass");
 const noReloadBtn = document.getElementById("noReload");
 const flashMessage = document.getElementById("flashMessage");
@@ -662,67 +697,7 @@ function showFlash(msg = "Attendance marked successfully ✔") {
   }, 2200);
 }
 
-/* Intercept submit when multiple classes exist */
-attendanceForm?.addEventListener("submit", function(e) {
 
-  const allPractical = timetableClasses.every(c => c.class_type === "Pr");
-
-  // If single class OR practical block → normal submit
-  if (timetableClasses.length <= 1 || allPractical) return;
-
-  e.preventDefault();
-
-  const formData = new FormData(attendanceForm);
-
-  fetch(window.location.pathname + window.location.search, {
-    method: "POST",
-    headers: {
-      "X-Requested-With": "XMLHttpRequest"
-    },
-    body: formData
-  })
-  .then(res => res.json())
-  .then(data => {
-
-    // Backend rejected
-    if (!data.success) {
-      alert(data.message);   // clear error message
-      return;
-    }
-
-    // ✅ Backend accepted
-    showFlash();
-
-    if (currentClassIndex < timetableClasses.length - 1) {
-      modalTimer = setTimeout(() => {
-        multiClassModal.classList.add("active");
-      }, 2500);
-    } else {
-      setTimeout(() => {
-        window.location.href = window.location.pathname;
-      }, 2500);
-    }
-
-  })
-  .catch(err => {
-    alert("Server error while saving attendance.");
-    console.error(err);
-  });
-
-});
-
-/* YES → Next class */
-yesNextClassBtn.addEventListener("click", () => {
-  multiClassModal.classList.remove("active");
-
-  if (currentClassIndex < timetableClasses.length - 1) {
-    currentClassIndex++;
-    classNoSelect.value = currentClassIndex;
-    fillClassFields(currentClassIndex);
-  } else {
-    showFlash("All classes completed ✔");
-  }
-});
 
 /* NO → Hard reload */
 noReloadBtn.addEventListener("click", () => {
@@ -730,8 +705,5 @@ noReloadBtn.addEventListener("click", () => {
 });
 
 </script>
-
-
-
 
 {% endblock %}

@@ -89,37 +89,25 @@
     margin-bottom: 1rem;
   }
 
-  /* Form styling */
-  form{
-    width:100%;
-    display:flex;
-    flex-direction:column;
-    gap:1.25rem;
+  /* Form inputs */
+  .form-label{
+    font-weight:600;
+    color: var(--cream);
   }
-
-  .form-label { font-weight:600; color: var(--cream); }
-  .form-control{
+  .form-control, .form-select{
     border-radius: 10px;
     padding: 10px 14px;
     border: 2px solid var(--brown-mid);
     background: var(--cream);
     color: var(--black);
-    transition: var(--transition);
     width:100%;
+    transition: var(--transition);
   }
-  .form-control:focus {
+  .form-control:focus, .form-select:focus{
     outline:none;
     border-color: var(--yellow);
-    box-shadow: 0 0 0 4px rgba(246, 245, 244, 0.25);
+    box-shadow: 0 0 0 4px rgba(246,245,244,0.25);
   }
-
-.action-buttons{
-  display:flex;
-  justify-content:center;
-  gap:8px;               /* less space */
-  margin-top:1rem;
-  flex-wrap:wrap;
-}
 
 /* Mobile optimization */
 @media (max-width:480px){
@@ -160,6 +148,7 @@
           <label for="confirm_password" class="form-label">Confirm New Password</label>
           <input type="password" class="form-control" id="confirm_password" name="confirm_password">
         </div>
+        <hr>
         <div class="action-buttons">
           <button type="submit" class="btn-dashboard"><span>Update Teacher</span></button>
           <a href="{{ url_for('manage_teachers') }}" class="btn-dashboard"><span>Cancel</span></a>

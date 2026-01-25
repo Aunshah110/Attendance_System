@@ -134,28 +134,6 @@
   color: #666;
 }
 
-  /* Buttons - Enhanced version */
-  .btn-dashboard{
-    grid-column: 1 / -1;
-    max-width: 320px;
-    margin: 1.2rem auto 0;
-    padding: 12px;
-    border-radius: 10px;
-    font-weight:800;
-    text-transform:uppercase;
-    letter-spacing:0.8px;
-    background: linear-gradient(180deg, var(--yellow), #f6c95a);
-    color: var(--black);
-    border: none;
-    cursor:pointer;
-    transition: var(--transition);
-  }
-
-  .btn-dashboard:hover{
-    transform: translateY(-3px);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
-  }
-
   /* Card headers */
   .card-header {
     background: linear-gradient(90deg, var(--brown-dark), var(--brown-mid));
@@ -439,6 +417,7 @@
     }
   }
 </style>
+<link rel="stylesheet" href="style.css">
 
 <div class="admin-wrapper">
   <div class="dashboard-card">
@@ -470,6 +449,10 @@
                   {% endfor %}
                 </select>
               </div>
+              <div id="sectionWrapper" style="display:none;">
+                <label class="form-label">Section</label>
+                <select class="form-select" name="section_id" id="section_id"></select>
+              </div>
               <div>
                 <label class="form-label">Semester</label>
                 <select class="form-select" name="semester_id" id="semester_id" required>
@@ -498,11 +481,11 @@
               </div>
               <div>
                 <label class="form-label">Start Time</label>
-                <input type="time" class="form-control" name="start_time" required>
+                <input type="time" class="form-control" name="start_time" id="start_time" required>
               </div>
               <div>
                 <label class="form-label">End Time</label>
-                <input type="time" class="form-control" name="end_time" required>
+                <input type="time" class="form-control" name="end_time" id="end_time" required>
               </div>
               <div>
                 <label class="form-label">Class Type</label>
@@ -513,7 +496,10 @@
                 </select>
               </div>
             </div>
-            <button type="submit" class="btn-dashboard"><span>Add Entry</span></button>
+            <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
+              <button type="submit" class="btn-dashboard"><span>Add Entry</span></button>
+              <a href="{{ url_for('home') }}" class="btn-dashboard"><span>Back</span></a>
+            </div>
           </form>
         </div>
       </div>
@@ -527,7 +513,7 @@
             <div class="form-grid">
               <div>
                 <label class="form-label">Batch</label>
-                <select class="form-select" name="batch_id" required>
+                <select class="form-select" name="batch_id" id="view_batch_id" required>
                   <option value="">Select Batch</option>
                   {% for batch in batches %}
                     <option value="{{ batch[0] }}" {% if selected_batch == batch[0]|string %}selected{% endif %}>{{ batch[1] }}</option>
@@ -536,16 +522,22 @@
               </div>
               <div>
                 <label class="form-label">Department</label>
-                <select class="form-select" name="department_id" required>
+                <select class="form-select" name="department_id" id="view_department_id" required>
                   <option value="">Select Department</option>
                   {% for department in departments %}
                     <option value="{{ department[0] }}" {% if selected_department == department[0]|string %}selected{% endif %}>{{ department[1] }}</option>
                   {% endfor %}
                 </select>
               </div>
+              <div id="viewSectionWrapper" style="display:none;">
+                <label class="form-label">Section</label>
+                <select class="form-select" name="section_id" id="view_section_id">
+                  <option value="">Select Section</option>
+                </select>
+              </div>
               <div>
                 <label class="form-label">Semester</label>
-                <select class="form-select" name="semester_id" required>
+                <select class="form-select" name="semester_id" id="view_semester_id" required>
                   <option value="">Select Semester</option>
                   {% for semester in semesters %}
                     <option value="{{ semester[0] }}" {% if selected_semester == semester[0]|string %}selected{% endif %}>{{ semester[1] }}</option>
@@ -553,7 +545,9 @@
                 </select>
               </div>
             </div>
-            <button type="submit" class="btn-dashboard"><span>Generate Timetable</span></button>
+            <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
+              <button type="submit" class="btn-dashboard"><span>Show Timetable</span></button>
+            </div>
           </form>
         </div>
       </div>
@@ -609,13 +603,13 @@
             </table>
           </div>
           
-          <div class="text-center mt-4">
+          <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
             <a href="{{ url_for('download_timetable_pdf', 
                               batch_id=selected_batch, 
                               department_id=selected_department, 
                               semester_id=selected_semester) }}" 
               class="btn-dashboard">
-              <span>Download as PDF</span>
+              <span>Download PDF</span>
             </a>
           </div>
         </div>
@@ -631,53 +625,301 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const batchSelect = document.getElementById('batch_id');
-    const departmentSelect = document.getElementById('department_id');
-    const semesterSelect = document.getElementById('semester_id');
-    const courseSelect = document.getElementById('course_id');
+function getSectionValue(wrapper, select){
+  if(wrapper.style.display === 'block'){
+    return select.value ? parseInt(select.value) : null;
+  }
+  return null;
+}
 
-    function fetchCourses() {
-        const batch_id = batchSelect.value;
-        const department_id = departmentSelect.value;
-        const semester_id = semesterSelect.value;
+document.addEventListener('DOMContentLoaded', function () {
 
-        if(batch_id && department_id && semester_id){
-            fetch('/get_courses', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({batch_id, department_id, semester_id})
-            })
-            .then(response => response.json())
-            .then(data => {
-                courseSelect.innerHTML = '<option value="">-- Select Course --</option>';
-                if(data.length > 0){
-                    data.forEach(course => {
-                        const option = document.createElement('option');
-                        option.value = course.id;
-                        option.textContent = course.name;
-                        courseSelect.appendChild(option);
-                    });
-                    courseSelect.disabled = false;
-                } else {
-                    courseSelect.disabled = true;
-                }
-            })
-            .catch(err => {
-                console.error('Error fetching courses:', err);
-                courseSelect.disabled = true;
-            });
-        } else {
-            courseSelect.innerHTML = '<option value="">-- Select Course --</option>';
-            courseSelect.disabled = true;
+  /* =====================================================
+     ADD ENTRY FORM
+  ====================================================== */
+
+  const batch = document.getElementById('batch_id');
+  const dept = document.getElementById('department_id');
+  const semester = document.getElementById('semester_id');
+  const course = document.getElementById('course_id');
+
+  const sectionWrap = document.getElementById('sectionWrapper');
+  const section = document.getElementById('section_id');
+
+  function resetAddSection(){
+    section.innerHTML = '<option value="">Select Section</option>';
+    section.removeAttribute('required');
+    sectionWrap.style.display = 'none';
+  }
+
+  function canFetchCourses(){
+    if(!batch.value || !dept.value || !semester.value) return false;
+    if(sectionWrap.style.display === 'block' && !section.value) return false;
+    return true;
+  }
+
+  function loadAddSections(){
+    resetAddSection();
+    course.disabled = true;
+
+    if(!batch.value || !dept.value) return;
+
+    fetch(`/admin/check_sections?batch_id=${batch.value}&department_id=${dept.value}`)
+      .then(r => r.json())
+      .then(data => {
+
+        if(data.length){
+          sectionWrap.style.display = 'block';
+          section.setAttribute('required','required');
+
+          data.forEach(s=>{
+            const o = document.createElement('option');
+            o.value = s[0];
+            o.textContent = s[1];
+            section.appendChild(o);
+          });
         }
+
+        if(canFetchCourses()) fetchCourses();
+      })
+      .catch(err=>console.error('Section fetch error:', err));
+  }
+
+  function fetchCourses(){
+    if(!canFetchCourses()){
+      course.disabled = true;
+      return;
     }
 
-    batchSelect.addEventListener('change', fetchCourses);
-    departmentSelect.addEventListener('change', fetchCourses);
-    semesterSelect.addEventListener('change', fetchCourses);
+    fetch('/get_courses',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        batch_id: batch.value,
+        department_id: dept.value,
+        semester_id: semester.value,
+        section_id: getSectionValue(sectionWrap, section)
+      })
+    })
+    .then(r=>r.json())
+    .then(data=>{
+      course.innerHTML = '<option value="">-- Select Course --</option>';
+      if(data.length){
+        data.forEach(c=>{
+          const o = document.createElement('option');
+          o.value = c.id;
+          o.textContent = c.name;
+          course.appendChild(o);
+        });
+        course.disabled = false;
+      } else {
+        course.disabled = true;
+      }
+    })
+    .catch(err=>{
+      console.error('Course fetch error:', err);
+      course.disabled = true;
+    });
+  }
+
+  batch?.addEventListener('change', loadAddSections);
+  dept?.addEventListener('change', loadAddSections);
+  semester?.addEventListener('change', fetchCourses);
+  section?.addEventListener('change', fetchCourses);
+
+  /* ================================
+     VIEW TIMETABLE FORM
+  ================================= */
+
+  const vBatch = document.getElementById('view_batch_id');
+  const vDept = document.getElementById('view_department_id');
+
+  const vSectionWrap = document.getElementById('viewSectionWrapper');
+  const vSection = document.getElementById('view_section_id');
+
+  const selectedSection = "{{ selected_section or '' }}";
+
+  function resetViewSection(){
+    vSection.innerHTML = '<option value="">Select Section</option>';
+    vSection.removeAttribute('required');
+    vSectionWrap.style.display = 'none';
+  }
+
+  function loadViewSections(autoSelect=false){
+
+    resetViewSection();
+
+    if(!vBatch.value || !vDept.value) return;
+
+    fetch(`/admin/check_sections?batch_id=${vBatch.value}&department_id=${vDept.value}`)
+      .then(r=>r.json())
+      .then(data=>{
+
+        if(data.length){
+          vSectionWrap.style.display = 'block';
+          vSection.setAttribute('required','required');
+
+          data.forEach(s=>{
+            const o = document.createElement('option');
+            o.value = s[0];
+            o.textContent = s[1];
+
+            if(autoSelect && selectedSection && selectedSection == s[0]){
+              o.selected = true;
+            }
+
+            vSection.appendChild(o);
+          });
+        }
+      })
+      .catch(err=>console.error('View section fetch error:', err));
+  }
+
+  vBatch?.addEventListener('change', () => {
+    resetViewSection();
+    loadViewSections();
+  });
+
+  vDept?.addEventListener('change', () => {
+    resetViewSection();
+    loadViewSections();
+  });
+
+  if(vBatch?.value && vDept?.value){
+    loadViewSections(true);
+  }
+
+});
+
+/* =====================================================
+   VIEW TIMETABLE — PREVENT JUMP + AUTO SCROLL
+===================================================== */
+
+document.addEventListener('DOMContentLoaded', function(){
+
+  const viewForm = document.querySelectorAll('form')[1];
+  const timetableBlock = document.querySelector('.timetable-container');
+  const noDataAlert = document.querySelector('.no-data-alert');
+
+  if(viewForm){
+    viewForm.addEventListener('submit', function(){
+      sessionStorage.setItem('scrollToTable','1');
+    });
+  }
+
+  if(sessionStorage.getItem('scrollToTable')){
+    sessionStorage.removeItem('scrollToTable');
+
+    setTimeout(()=>{
+      if(timetableBlock){
+        timetableBlock.scrollIntoView({behavior:'smooth', block:'start'});
+      }
+      else if(noDataAlert){
+        noDataAlert.scrollIntoView({behavior:'smooth', block:'center'});
+      }
+    },300);
+  }
+
+});
+
+/* =====================================================
+   IMMEDIATE START / END TIME VALIDATION
+===================================================== */
+
+document.addEventListener('DOMContentLoaded', function(){
+
+  const startTime = document.getElementById('start_time');
+  const endTime   = document.getElementById('end_time');
+
+  if(!startTime || !endTime) return;
+
+  function validateTimeInstant(){
+
+    if(startTime.value && endTime.value){
+      if(startTime.value >= endTime.value){
+        alert('Invalid Time: Start time must be earlier than End time.');
+
+        if(document.activeElement === endTime){
+          endTime.value = '';
+        } else {
+          startTime.value = '';
+        }
+        return false;
+      }
+    }
+    return true;
+  }
+
+  startTime.addEventListener('change', validateTimeInstant);
+  endTime.addEventListener('change', validateTimeInstant);
+
+});
+
+/* =====================================================
+   KEEP ALL FIELDS — RESET ONLY START & END TIME
+===================================================== */
+
+document.addEventListener('DOMContentLoaded', function(){
+
+  const addForm = document.querySelector('form'); // add entry form
+  if(!addForm) return;
+
+  const keepFields = [
+    'batch_id',
+    'department_id',
+    'section_id',
+    'semester_id',
+    'course_id',
+    'day',
+    'class_type'
+  ];
+
+  /* ===== STORE BEFORE SUBMIT ===== */
+  addForm.addEventListener('submit', function(){
+
+    keepFields.forEach(id=>{
+      const el = document.getElementById(id) || document.querySelector(`[name="${id}"]`);
+      if(el && el.value){
+        sessionStorage.setItem(`keep_${id}`, el.value);
+      }
+    });
+
+    sessionStorage.setItem('restore_add_form', '1');
+  });
+
+  /* ===== RESTORE AFTER PAGE RELOAD ===== */
+  if(sessionStorage.getItem('restore_add_form')){
+
+    // restore kept fields
+    keepFields.forEach(id=>{
+      const saved = sessionStorage.getItem(`keep_${id}`);
+      const el = document.getElementById(id) || document.querySelector(`[name="${id}"]`);
+      if(el && saved){
+        el.value = saved;
+      }
+    });
+
+    // reset ONLY time fields
+    const startTime = document.getElementById('start_time');
+    const endTime   = document.getElementById('end_time');
+
+    if(startTime) startTime.value = '';
+    if(endTime)   endTime.value = '';
+
+    // re-trigger dependent dropdowns
+    document.getElementById('batch_id')?.dispatchEvent(new Event('change'));
+    document.getElementById('department_id')?.dispatchEvent(new Event('change'));
+    document.getElementById('semester_id')?.dispatchEvent(new Event('change'));
+
+    // cleanup
+    keepFields.forEach(id=>sessionStorage.removeItem(`keep_${id}`));
+    sessionStorage.removeItem('restore_add_form');
+  }
+
 });
 </script>
+
+
 
 
 {% endblock %}
