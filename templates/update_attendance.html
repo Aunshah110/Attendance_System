@@ -85,27 +85,6 @@
     align-items:center;
   }
 
-  /* Heading styling */
-  h1 {
-    color: var(--cream);
-    text-align: center;
-    font-weight: 700;
-    margin-bottom: 1.5rem;
-    position: relative;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-  }
-  h1::after {
-    content: "";
-    position: absolute;
-    bottom: -10px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 80px;
-    height: 3px;
-    background: linear-gradient(to right, var(--yellow), var(--brown-mid));
-    border-radius: 3px;
-  }
-
   /* Form styling */
   form{
     width:100%;
@@ -140,30 +119,6 @@
     box-shadow: 0 0 0 4px rgba(246, 245, 244, 0.25);
   }
 
-  /* Filter button */
-.btn-dashboard{
-  display: inline-flex;            /* inline-flex keeps it content-based */
-  align-items: center;
-  justify-content: center;
-  padding: 10px 20px;              /* nice professional padding */
-  min-width: 140px;                /* ensures button not too small */
-  max-width: 200px;                /* limits over-expansion */
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  background: linear-gradient(180deg, var(--yellow), #f6c95a);
-  color: var(--black);
-  border: 1.5px solid rgba(0,0,0,0.1);
-  text-decoration: none;
-  transition: var(--transition);
-  margin: 0 auto;                  /* centers the button */
-}
-
-.btn-dashboard:hover{
-  transform: translateY(-3px);
-}
 
   /* Responsive adjustments */
   @media (max-width: 768px) {
@@ -199,6 +154,8 @@
     }
   }
 </style>
+<link rel="stylesheet" href="style.css">
+
 
 <div class="admin-wrapper">
   <div class="dashboard-card" role="region" aria-label="Update attendance form">
@@ -213,10 +170,12 @@
             <option value="Absent" {% if attendance_record[6] == 'Absent' %}selected{% endif %}>Absent</option>
           </select>
         </div>
-        
-        <button type="submit" class="btn-dashboard">
-          <span>Update Attendance</span>
-        </button>
+        <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
+          <button type="submit" class="btn-dashboard">
+            <span>Update</span>
+          </button>
+          <a href="{{ url_for('manage_attendance') }}" class="btn-dashboard"><span>Cancel</span></a>
+        </div>
       </form>
     </div>
   </div>

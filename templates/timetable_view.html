@@ -96,17 +96,6 @@
     box-shadow: 0 0 0 4px rgba(246, 245, 244, 0.25);
   }
 
-  .no-data-alert{
-  margin-top: 1.5rem;
-  padding: 14px 18px;
-  border-radius: 10px;
-  background: rgba(255, 210, 74, 0.18);
-  border: 1.5px solid var(--yellow);
-  color: var(--brown-dark);
-  font-weight: 600;
-  text-align: center;
-}
-
   /* White Table with black headings */
   .table-wrapper {
     overflow-x: auto;
@@ -153,7 +142,7 @@
 
 <div class="timetable-wrapper">
   <div class="card-custom">
-      <h1 style="color: var(--yellow); text-align:center;">Timetable</h1>
+      <h1>Timetable</h1>
 
   <form method="POST" class="mb-4">
     <input type="hidden" name="generate_table" value="1">
@@ -276,10 +265,9 @@
         <span>Download PDF</span>
       </a>
     </div>
-    {% else %}
-      <!-- ⚠️ NO DATA MESSAGE -->
+    {% elif form_submitted %}
       <div class="no-data-alert">
-          ⚠️ No records available for the selected Batch, Department and Semester.
+          ⚠️ No records available.
       </div>
     {% endif %}
   </div>

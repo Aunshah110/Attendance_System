@@ -272,7 +272,7 @@
   <div class="dashboard-card" role="region" aria-label="Teacher dashboard">
     <div class="dashboard-inner">
 
-      <h1 style="color: var(--yellow); text-align:center;">Mark Attendance</h1>
+      <h1>Mark Attendance</h1>
 
       <!-- Fetch Students Form -->
       <form method="GET" class="mb-4">
@@ -340,7 +340,6 @@
 
       <!-- Attendance Form -->
       {% if students %}
-      <h3 class="text-dark">Students</h3>
       <form id="attendanceForm" method="POST" action="{{ url_for('mark_attendance') }}">
         <input type="hidden" name="batch_id" value="{{ selected_batch }}">
         <input type="hidden" name="department_id" value="{{ selected_department }}">

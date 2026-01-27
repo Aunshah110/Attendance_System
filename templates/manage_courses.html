@@ -242,6 +242,35 @@ td[data-label="Action"] .btn-dashboard.btn-sm {
     justify-content:center;
     margin-top:8px;
   }
+
+   td[data-label="Action"]{
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  td[data-label="Action"]::before{
+    display: none !important;
+  }
+
+  td[data-label="Action"] form{
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+  }
+
+  td[data-label="Action"] button,
+  td[data-label="Action"] .btn-dashboard{
+    float: none !important;
+    margin: 0 auto !important;
+    display: inline-flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    max-width: 180px;
+    width: 100%;
+  }
 }
 
 </style>
@@ -251,7 +280,7 @@ td[data-label="Action"] .btn-dashboard.btn-sm {
   <div class="dashboard-card">
     <div class="dashboard-inner">
 
-      <h1 style="color: var(--yellow); text-align:center;">Manage Courses</h1>
+      <h1>Manage Courses</h1>
 
       <form method="POST" id="importForm">
         <div>
@@ -337,9 +366,9 @@ td[data-label="Action"] .btn-dashboard.btn-sm {
             {% endfor %}
           </tbody>
         </table>
-      {% else %}
+      {% elif form_submitted %}
         <div class="no-data-alert">
-            ⚠️ No records available for the selected Batch, Department and Semester.
+            ⚠️ No records available.
         </div>
       {% endif %}
 

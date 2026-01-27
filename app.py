@@ -6,8 +6,14 @@ import os
 import pandas as pd
 import re, csv, io
 from datetime import datetime, time, date
-# from reportlab.lib.pagesizes import letter
+from werkzeug.utils import secure_filename
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from slugify import slugify
 from io import BytesIO
+from reportlab.lib.units import inch
 
 app = Flask(__name__)
 app.secret_key = 'app123'
@@ -231,7 +237,7 @@ def login():
                 flash('Unknown role!', 'danger')
                 return redirect(url_for('login'))
         else:
-            flash('Invalid email or password', 'error')
+            flash('Invalid email or password', 'warning')
 
     return render_template('login.html')
 
@@ -784,6 +790,7 @@ def view_students():
     sections_available = False
     sections = []
     show_table = False
+    form_submitted = False
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -802,7 +809,7 @@ def view_students():
         # Form Submit
         # -----------------------------
         if request.method == 'POST':
-
+            form_submitted = True
             selected_batch = request.form.get('batch_id')
             selected_department = request.form.get('department_id')
             selected_section = request.form.get('section')
@@ -897,6 +904,7 @@ def view_students():
     students=students,
     sections_available=sections_available,
     sections=sections,
+    form_submitted=form_submitted,
     selected_batch=selected_batch,
     selected_department=selected_department,
     selected_section=selected_section,
@@ -1024,328 +1032,409 @@ def delete_student(student_id):
     return redirect(url_for('view_students'))
     
 
-from werkzeug.utils import secure_filename
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
-from slugify import slugify
 
 @app.route('/admin/generate_reports', methods=['GET', 'POST'])
 @role_required("admin")
 def admin_generate_reports():
-    if request.method == 'POST':
-        # Check if this is an export request
-        if 'export_csv' in request.form or 'export_pdf' in request.form:
-            # Get the filter parameters from session
-            batch_id = session.get('report_batch_id')
-            department_id = session.get('report_department_id')
-            semester_id = session.get('report_semester_id')
-            
-            if not all([batch_id, department_id, semester_id]):
-                flash('Please generate a report first before exporting', 'error')
-                return redirect(url_for('admin_generate_reports'))
-        else:
-            # Regular report generation
-            batch_id = request.form['batch_id']
-            department_id = request.form['department_id']
-            semester_id = request.form['semester_id']
-            
-            # Store filters in session for export
-            session['report_batch_id'] = batch_id
-            session['report_department_id'] = department_id
-            session['report_semester_id'] = semester_id
-        
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        try:
-            # Get batch, department, semester names for report title
-            cursor.execute('SELECT name FROM batches WHERE id = %s', (batch_id,))
-            batch_result = cursor.fetchone()
-            if not batch_result:
-                flash('Batch not found!', 'error')
-                return redirect(url_for('admin_generate_reports'))
-            batch_name = batch_result[0]
-            
-            cursor.execute('SELECT name FROM departments WHERE id = %s', (department_id,))
-            dept_result = cursor.fetchone()
-            if not dept_result:
-                flash('Department not found!', 'error')
-                return redirect(url_for('admin_generate_reports'))
-            dept_name = dept_result[0]
-            
-            cursor.execute('SELECT name FROM semesters WHERE id = %s', (semester_id,))
-            semester_result = cursor.fetchone()
-            if not semester_result:
-                flash('Semester not found!', 'error')
-                return redirect(url_for('admin_generate_reports'))
-            semester_name = semester_result[0]
-            
-            # Get all students in batch/department
-            cursor.execute('''
-            SELECT u.id, u.name, 
-            COUNT(a.id) AS total_days,
-            COALESCE(SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END), 0) AS present_days,
-            CASE 
-               WHEN COUNT(a.id) = 0 THEN 0.00
-               ELSE ROUND(SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) * 100.0 / COUNT(a.id), 2)
-            END AS percentage
-            FROM users u
-            LEFT JOIN attendance a ON u.id = a.student_id
-            LEFT JOIN courses c ON a.course_id = c.id
-            WHERE u.role = 'student' 
-            AND u.batch_id = %s 
-            AND u.department_id = %s
-            AND c.semester_id = %s
-            GROUP BY u.id, u.name
-            ORDER BY CAST(SUBSTRING(u.id FROM '(\\d+)$') AS INTEGER)
-            ''', (batch_id, department_id, semester_id))
-            
-            report_data = cursor.fetchall()
-            
-            if 'export_csv' in request.form:
-                return export_csv(report_data, f"Reports for {batch_name}, Department {dept_name}, {semester_name}")
-            elif 'export_pdf' in request.form:
-                return export_pdf(report_data, f"Reports for {batch_name}, Department {dept_name}, {semester_name}")
-            
-            return render_template('admin_generate_reports.html', 
-                                report_data=report_data,
-                                batch_name=batch_name,
-                                dept_name=dept_name,
-                                semester_name=semester_name,
-                                batches=session.get('batches'),
-                                departments=session.get('departments'),
-                                semesters=session.get('semesters'))
-            
-        except Exception as e:
-            flash(f'Error generating report: {str(e)}', 'error')
-            return redirect(url_for('admin_generate_reports'))
-        
-        finally:
-            conn.close()
-    
-    # Fetch dropdown options
+
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    report_data = []
+    form_submitted = False
+
+    selected_batch = None
+    selected_department = None
+    selected_section = None
+    selected_semester = None
+
+    batch_name = dept_name = semester_name = section_name = None
+
     try:
-        cursor.execute('SELECT * FROM batches')
+        # ------------------ DROPDOWNS ------------------
+        cursor.execute('SELECT id, name FROM batches ORDER BY name')
         batches = cursor.fetchall()
-        cursor.execute('SELECT * FROM departments')
+
+        cursor.execute('SELECT id, name FROM departments ORDER BY name')
         departments = cursor.fetchall()
-        cursor.execute('SELECT * FROM semesters')
+
+        cursor.execute('SELECT id, name FROM semesters ORDER BY id')
         semesters = cursor.fetchall()
-        
-        # Store in session for later use
-        session['batches'] = batches
-        session['departments'] = departments
-        session['semesters'] = semesters
-        
-        return render_template('admin_generate_reports.html', 
-                            batches=batches,
-                            departments=departments,
-                            semesters=semesters)
+
+        # ------------------ FORM SUBMIT ------------------
+        if request.method == 'POST':
+            form_submitted = True
+
+            # EXPORT
+            if 'export_csv' in request.form or 'export_pdf' in request.form:
+                batch_id = session.get('report_batch_id')
+                department_id = session.get('report_department_id')
+                semester_id = session.get('report_semester_id')
+                section_id = session.get('report_section_id')
+            else:
+                batch_id = request.form.get('batch_id')
+                department_id = request.form.get('department_id')
+                semester_id = request.form.get('semester_id')
+                section_id = request.form.get('section_id') or None
+
+                session['report_batch_id'] = batch_id
+                session['report_department_id'] = department_id
+                session['report_semester_id'] = semester_id
+                session['report_section_id'] = section_id
+
+            selected_batch = batch_id
+            selected_department = department_id
+            selected_section = section_id
+            selected_semester = semester_id
+
+            if not (batch_id and department_id and semester_id):
+                flash("Please select Batch, Department and Semester.", "warning")
+                return redirect(url_for('admin_generate_reports'))
+
+            # ------------------ NAMES ------------------
+            cursor.execute('SELECT name FROM batches WHERE id=%s', (batch_id,))
+            batch_name = cursor.fetchone()[0]
+
+            cursor.execute('SELECT name FROM departments WHERE id=%s', (department_id,))
+            dept_name = cursor.fetchone()[0]
+
+            cursor.execute('SELECT name FROM semesters WHERE id=%s', (semester_id,))
+            semester_name = cursor.fetchone()[0]
+
+            if section_id:
+                cursor.execute('SELECT name FROM sections WHERE id=%s', (section_id,))
+                r = cursor.fetchone()
+                section_name = r[0] if r else None
+
+            # ------------------ REPORT QUERY ------------------
+
+            base_query = '''
+                SELECT u.id, u.name,
+                       COUNT(a.id) AS total_days,
+                       COALESCE(SUM(CASE WHEN a.status='present' THEN 1 ELSE 0 END),0) AS present_days,
+                       CASE WHEN COUNT(a.id)=0 THEN 0.00
+                            ELSE ROUND(SUM(CASE WHEN a.status='present' THEN 1 ELSE 0 END)*100.0/COUNT(a.id),2)
+                       END AS percentage
+                FROM users u
+                LEFT JOIN attendance a ON u.id = a.student_id
+                LEFT JOIN courses c ON a.course_id = c.id
+                WHERE u.role='student'
+                  AND u.batch_id=%s
+                  AND u.department_id=%s
+                  AND c.semester_id=%s
+            '''
+
+            params = [batch_id, department_id, semester_id]
+
+            if section_id:
+                base_query += ' AND u.section_id = %s '
+                params.append(section_id)
+
+            base_query += '''
+                GROUP BY u.id, u.name
+                ORDER BY CAST(SUBSTRING(u.id FROM '(\\d+)$') AS INTEGER)
+            '''
+
+            cursor.execute(base_query, tuple(params))
+            report_data = cursor.fetchall()
+
+            title = f"{batch_name}-{dept_name}"
+            if section_name:
+                title += f"-{section_name}"
+            title += f"-{semester_name}"
+
+
+            if 'export_csv' in request.form:
+                return export_csv(report_data, title)
+
+            if 'export_pdf' in request.form:
+                return export_pdf(report_data, title)
+
+        return render_template(
+            'admin_generate_reports.html',
+            batches=batches,
+            departments=departments,
+            semesters=semesters,
+            report_data=report_data,
+            form_submitted=form_submitted,
+            selected_batch=selected_batch,
+            selected_department=selected_department,
+            selected_section=selected_section,
+            selected_semester=selected_semester,
+            batch_name=batch_name,
+            dept_name=dept_name,
+            semester_name=semester_name,
+            section_name=section_name
+        )
+
     except Exception as e:
-        flash(f'Error fetching dropdown data: {str(e)}', 'error')
-        return render_template('admin_generate_reports.html')
+        flash(f"Error: {str(e)}", "danger")
+        return redirect(url_for('admin_generate_reports'))
+
     finally:
+        cursor.close()
         conn.close()
+
 
 @app.route('/teacher/generate_reports', methods=['GET', 'POST'])
 @role_required("teacher")
 def teacher_generate_reports():
+
     teacher_id = session.get('user_id')
     if not teacher_id:
-        flash('Please login first', 'error')
+        flash('Please login first', 'danger')
         return redirect(url_for('login'))
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
+    # -------------------------------
+    # Template vars
+    # -------------------------------
+    batches = []
+    departments = []
+    semesters = []
+    courses = []
+    report_data = None
+
+    selected_batch = None
+    selected_department = None
+    selected_section = None
+    selected_semester = None
+    selected_course = None
+
+    batch_name = ''
+    dept_name = ''
+    semester_name = ''
+    course_name = ''
+    section_name = ''
+
+
     try:
         # -------------------------------
-        # Load dropdown master data
+        # Load master dropdown data
         # -------------------------------
-        cursor.execute('SELECT * FROM batches')
+        cursor.execute('SELECT * FROM batches ORDER BY name')
         batches = cursor.fetchall()
 
-        cursor.execute('SELECT * FROM departments')
+        cursor.execute('SELECT * FROM departments ORDER BY name')
         departments = cursor.fetchall()
 
-        cursor.execute('SELECT * FROM semesters')
+        cursor.execute('SELECT * FROM semesters ORDER BY name')
         semesters = cursor.fetchall()
 
-        # -------------------------------
-        # Read selected filters from query params (GET)
-        # -------------------------------
-        selected_batch = request.args.get('batch_id')
-        selected_department = request.args.get('department_id')
-        selected_semester = request.args.get('semester_id')
-
-        courses = []
+        
+        section_name = None
+        if selected_section:
+            cursor.execute('SELECT name FROM sections WHERE id=%s', (selected_section,))
+            r = cursor.fetchone()
+            section_name = r[0] if r else None
 
         # -------------------------------
-        # Load courses ONLY if all filters selected
+        # Read filters (GET first)
+        # -------------------------------
+        selected_batch = request.args.get('batch_id') or None
+        selected_department = request.args.get('department_id') or None
+        selected_section = request.args.get('section_id') or None
+        selected_semester = request.args.get('semester_id') or None
+
+        # -------------------------------
+        # POST overrides filters
+        # -------------------------------
+        if request.method == 'POST':
+            selected_batch = request.form.get('batch_id')
+            selected_department = request.form.get('department_id')
+            selected_section = request.form.get('section_id') or None
+            selected_semester = request.form.get('semester_id')
+            selected_course = request.form.get('course_id')
+
+        if selected_batch:
+            cursor.execute('SELECT name FROM batches WHERE id=%s', (selected_batch,))
+            r = cursor.fetchone()
+            batch_name = r[0] if r else ''
+
+        if selected_department:
+            cursor.execute('SELECT name FROM departments WHERE id=%s', (selected_department,))
+            r = cursor.fetchone()
+            dept_name = r[0] if r else ''
+
+        if selected_semester:
+            cursor.execute('SELECT name FROM semesters WHERE id=%s', (selected_semester,))
+            r = cursor.fetchone()
+            semester_name = r[0] if r else ''
+
+        if selected_course:
+            cursor.execute('SELECT name FROM courses WHERE id=%s', (selected_course,))
+            r = cursor.fetchone()
+            course_name = r[0] if r else ''
+
+        if selected_section:
+            cursor.execute('SELECT name FROM sections WHERE id=%s', (selected_section,))
+            r = cursor.fetchone()
+            section_name = r[0] if r else ''
+
+        # -------------------------------
+        # Load courses if filters ready
         # -------------------------------
         if selected_batch and selected_department and selected_semester:
-            cursor.execute('''
-                SELECT DISTINCT c.id, c.name
-                FROM course_allocations ca
-                JOIN courses c ON ca.course_id = c.id
-                WHERE ca.teacher_id = %s
-                  AND ca.batch_id = %s
-                  AND ca.department_id = %s
-                  AND ca.semester_id = %s
-                ORDER BY c.name
-            ''', (
-                teacher_id,
-                selected_batch,
-                selected_department,
-                selected_semester
-            ))
+
+            if selected_section:
+                cursor.execute('''
+                    SELECT DISTINCT c.id, c.name
+                    FROM course_allocations ca
+                    JOIN courses c ON ca.course_id = c.id
+                    WHERE ca.teacher_id = %s
+                      AND ca.batch_id = %s
+                      AND ca.department_id = %s
+                      AND ca.section_id = %s
+                      AND ca.semester_id = %s
+                    ORDER BY c.name
+                ''', (teacher_id, selected_batch, selected_department, selected_section, selected_semester))
+            else:
+                cursor.execute('''
+                    SELECT DISTINCT c.id, c.name
+                    FROM course_allocations ca
+                    JOIN courses c ON ca.course_id = c.id
+                    WHERE ca.teacher_id = %s
+                      AND ca.batch_id = %s
+                      AND ca.department_id = %s
+                      AND ca.section_id IS NULL
+                      AND ca.semester_id = %s
+                    ORDER BY c.name
+                ''', (teacher_id, selected_batch, selected_department, selected_semester))
+
             courses = cursor.fetchall()
 
         # -------------------------------
-        # Initial GET page load
+        # POST: Generate / Export
         # -------------------------------
-        if request.method == 'GET':
-            return render_template(
-                'teacher_generate_reports.html',
-                batches=batches,
-                departments=departments,
-                semesters=semesters,
-                courses=courses,
-                selected_batch=selected_batch,
-                selected_department=selected_department,
-                selected_semester=selected_semester,
-                report_data=None
-            )
+        if request.method == 'POST':
 
-        # -------------------------------
-        # POST: Export buttons
-        # -------------------------------
-        if 'export_csv' in request.form or 'export_pdf' in request.form:
-            batch_id = session.get('report_batch_id')
-            department_id = session.get('report_department_id')
-            semester_id = session.get('report_semester_id')
-            course_id = session.get('report_course_id')
-
-            if not all([batch_id, department_id, semester_id, course_id]):
-                flash('Please generate a report first before exporting', 'error')
+            if not selected_course:
+                flash('All fields are required!', 'danger')
                 return redirect(url_for('teacher_generate_reports'))
 
-        # -------------------------------
-        # POST: Generate report
-        # -------------------------------
-        else:
-            batch_id = request.form.get('batch_id')
-            department_id = request.form.get('department_id')
-            semester_id = request.form.get('semester_id')
-            course_id = request.form.get('course_id')
+            # Save for export
+            session['report_batch_id'] = selected_batch
+            session['report_department_id'] = selected_department
+            session['report_section_id'] = selected_section
+            session['report_semester_id'] = selected_semester
+            session['report_course_id'] = selected_course
 
-            if not all([batch_id, department_id, semester_id, course_id]):
-                flash('All fields are required!', 'error')
+            # -------------------------------
+            # Security: verify allocation
+            # -------------------------------
+            if selected_section:
+                cursor.execute('''
+                    SELECT 1 FROM course_allocations
+                    WHERE teacher_id=%s AND course_id=%s
+                      AND batch_id=%s AND department_id=%s
+                      AND section_id=%s AND semester_id=%s
+                ''', (teacher_id, selected_course, selected_batch, selected_department, selected_section, selected_semester))
+            else:
+                cursor.execute('''
+                    SELECT 1 FROM course_allocations
+                    WHERE teacher_id=%s AND course_id=%s
+                      AND batch_id=%s AND department_id=%s
+                      AND section_id IS NULL AND semester_id=%s
+                ''', (teacher_id, selected_course, selected_batch, selected_department, selected_semester))
+
+            if not cursor.fetchone():
+                flash('Unauthorized course access.', 'danger')
                 return redirect(url_for('teacher_generate_reports'))
 
-            # Store filters for export
-            session['report_batch_id'] = batch_id
-            session['report_department_id'] = department_id
-            session['report_semester_id'] = semester_id
-            session['report_course_id'] = course_id
+
+            # -------------------------------
+            # Attendance report query
+            # -------------------------------
+            if selected_section:
+                cursor.execute('''
+                    SELECT u.id, u.name,
+                           COUNT(a.id),
+                           COALESCE(SUM(CASE WHEN a.status='present' THEN 1 ELSE 0 END),0),
+                           CASE WHEN COUNT(a.id)=0 THEN 0
+                                ELSE ROUND(SUM(CASE WHEN a.status='present' THEN 1 ELSE 0 END)*100.0/COUNT(a.id),2)
+                           END
+                    FROM users u
+                    LEFT JOIN attendance a ON u.id=a.student_id AND a.course_id=%s
+                    WHERE u.role='student'
+                      AND u.batch_id=%s AND u.department_id=%s AND u.section_id=%s
+                    GROUP BY u.id, u.name
+                    ORDER BY CAST(SUBSTRING(u.id FROM '(\\d+)$') AS INTEGER)
+                ''', (selected_course, selected_batch, selected_department, selected_section))
+            else:
+                cursor.execute('''
+                    SELECT u.id, u.name,
+                           COUNT(a.id),
+                           COALESCE(SUM(CASE WHEN a.status='present' THEN 1 ELSE 0 END),0),
+                           CASE WHEN COUNT(a.id)=0 THEN 0
+                                ELSE ROUND(SUM(CASE WHEN a.status='present' THEN 1 ELSE 0 END)*100.0/COUNT(a.id),2)
+                           END
+                    FROM users u
+                    LEFT JOIN attendance a ON u.id=a.student_id AND a.course_id=%s
+                    WHERE u.role='student'
+                      AND u.batch_id=%s AND u.department_id=%s AND u.section_id IS NULL
+                    GROUP BY u.id, u.name
+                    ORDER BY CAST(SUBSTRING(u.id FROM '(\\d+)$') AS INTEGER)
+                ''', (selected_course, selected_batch, selected_department))
+
+            report_data = cursor.fetchall()
+            title = f"Attendance Report for {batch_name}, Department: {dept_name}"
+            if section_name:
+                title += f", {section_name}"
+            title += f", {semester_name}, Course: {course_name}"
+
+
+            if 'export_csv' in request.form:
+                return export_csv(report_data, title)
+
+            if 'export_pdf' in request.form:
+                return export_pdf(report_data, title)
 
         # -------------------------------
-        # Security: Verify teacher allocation
-        # -------------------------------
-        cursor.execute('''
-            SELECT 1 FROM course_allocations 
-            WHERE teacher_id = %s AND course_id = %s
-        ''', (teacher_id, course_id))
-
-        if not cursor.fetchone():
-            flash('You are not allocated to this course!', 'error')
-            return redirect(url_for('teacher_generate_reports'))
-
-        # -------------------------------
-        # Fetch report titles
-        # -------------------------------
-        cursor.execute('SELECT name FROM batches WHERE id = %s', (batch_id,))
-        batch_row = cursor.fetchone()
-        batch_name = batch_row[0] if batch_row else "Unknown Batch"
-
-        cursor.execute('SELECT name FROM departments WHERE id = %s', (department_id,))
-        dept_row = cursor.fetchone()
-        dept_name = dept_row[0] if dept_row else "Unknown Department"
-
-        cursor.execute('SELECT name FROM semesters WHERE id = %s', (semester_id,))
-        sem_row = cursor.fetchone()
-        semester_name = sem_row[0] if sem_row else "Unknown Semester"
-
-        cursor.execute('SELECT name FROM courses WHERE id = %s', (course_id,))
-        course_row = cursor.fetchone()
-        course_name = course_row[0] if course_row else "Unknown Course"
-
-        # -------------------------------
-        # Fetch attendance report data
-        # -------------------------------
-        cursor.execute('''
-            SELECT u.id, u.name, 
-                   COUNT(a.id) AS total_days,
-                   COALESCE(SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END), 0) AS present_days,
-                   CASE 
-                       WHEN COUNT(a.id) = 0 THEN 0.00
-                       ELSE ROUND(
-                           SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) * 100.0 / COUNT(a.id), 2
-                       )
-                   END AS percentage
-            FROM users u
-            LEFT JOIN attendance a ON u.id = a.student_id
-            WHERE u.role = 'student' 
-              AND u.batch_id = %s 
-              AND u.department_id = %s
-              AND a.course_id = %s
-            GROUP BY u.id, u.name
-            ORDER BY CAST(SUBSTRING(u.id FROM '(\\d+)$') AS INTEGER)
-        ''', (batch_id, department_id, course_id))
-
-        report_data = cursor.fetchall()
-
-        title = f"Reports for {batch_name}, Department {dept_name}, {semester_name}, Course {course_name}"
-
-        # -------------------------------
-        # Export actions
-        # -------------------------------
-        if 'export_csv' in request.form:
-            return export_csv(report_data, title)
-
-        if 'export_pdf' in request.form:
-            return export_pdf(report_data, title)
-
-        # -------------------------------
-        # Render normal report page
+        # Final render
         # -------------------------------
         return render_template(
             'teacher_generate_reports.html',
-            report_data=report_data,
+            batches=batches,
+            departments=departments,
+            semesters=semesters,
+            courses=courses,
             batch_name=batch_name,
             dept_name=dept_name,
             semester_name=semester_name,
             course_name=course_name,
-            batches=batches,
-            departments=departments,
-            semesters=semesters
+            section_name=section_name,
+            report_data=report_data,
+            selected_batch=selected_batch,
+            selected_department=selected_department,
+            selected_section=selected_section,
+            selected_semester=selected_semester,
+            selected_course=selected_course
         )
 
     except Exception as e:
-        flash(f'Error: {str(e)}', 'error')
+        flash(f'Error: {str(e)}', 'danger')
         return render_template(
             'teacher_generate_reports.html',
             batches=batches,
             departments=departments,
-            semesters=semesters
+            semesters=semesters,
+            courses=courses,
+            selected_batch=selected_batch,
+            selected_department=selected_department,
+            selected_section=selected_section,
+            selected_semester=selected_semester,
+            selected_course=selected_course
         )
 
     finally:
+        try:
+            cursor.close()
+        except:
+            pass
         conn.close()
+
 
 
 def export_csv(data, title):
@@ -1353,6 +1442,8 @@ def export_csv(data, title):
         # Create a StringIO buffer for CSV data
         output = io.StringIO()
         writer = csv.writer(output)
+
+        
         
         # Write header
         writer.writerow(['Student ID', 'Name', 'Total Days', 'Present Days', 'Percentage (%)'])
@@ -1385,6 +1476,23 @@ def export_pdf(data, title):
         doc = SimpleDocTemplate(buffer, pagesize=letter)
         elements = []
         styles = getSampleStyleSheet()
+
+        try:
+            # Add Logo (adjust width/height as needed)
+            logo = Image('static/uni_logo.png', width=1*inch, height=1*inch)
+            logo.hAlign = 'CENTER'
+            elements.append(logo)
+        except Exception as e:
+            # If logo not found, continue without it
+            pass
+
+        # University Title
+        uni_title = Paragraph(
+            "<para align='center'><b>BENAZIR BHUTTO SHAHEED UNIVERSITY OF TECHNOLOGY AND SKILL DEVELOPMENT KHAIRPUR</b></para>",
+            styles['Title']
+        )
+        elements.append(uni_title)
+        elements.append(Spacer(1, 0.2 * inch))
         
         # Add title
         elements.append(Paragraph(title, styles['Title']))
@@ -1552,9 +1660,10 @@ def manage_courses():
 
     courses = []
     selected_batch = selected_department = selected_semester = selected_section = None
+    form_submitted = False
 
     if request.method == 'POST':
-
+        form_submitted = True
         selected_batch = request.form.get('batch_id')
         selected_department = request.form.get('department_id')
         selected_semester = request.form.get('semester_id')
@@ -1592,6 +1701,7 @@ def manage_courses():
         departments=departments,
         semesters=semesters,
         courses=courses,
+        form_submitted=form_submitted,
         selected_batch=selected_batch,
         selected_department=selected_department,
         selected_semester=selected_semester,
@@ -1681,9 +1791,9 @@ def mark_attendance():
             if not cursor.fetchone():
                 return flash("Unauthorized or invalid course allocation.", "warning")
 
-            selected_date = date.fromisoformat(attendance_date)
-            if selected_date != date.today():
-                return flash("Attendance can only be marked for today's date.", "warning")
+            # selected_date = date.fromisoformat(attendance_date)
+            # if selected_date != date.today():
+            #     return flash("Attendance can only be marked for today's date.", "warning")
 
             if not any(k.startswith('attendance_') for k in request.form):
                 return flash("No attendance data submitted.", "warning")
@@ -1701,21 +1811,43 @@ def mark_attendance():
             if cursor.fetchone():
                 return flash("Attendance already marked for this class.", "warning")
 
+            # PRACTICAL BLOCK → get all slots of that day
+            practical_slots = []
+            if class_type == "Practical":
+                cursor.execute("""
+                    SELECT start_time, end_time
+                    FROM timetable
+                    WHERE batch_id=%s AND department_id=%s AND semester_id=%s
+                      AND course_id=%s
+                      AND (section_id=%s OR (%s IS NULL AND section_id IS NULL))
+                      AND TRIM(day) = TO_CHAR(%s::date, 'FMDay')
+                      AND class_type='Pr'
+                    ORDER BY start_time
+                """, (batch_id, department_id, semester_id, course_id, section_id, section_id, attendance_date))
+                practical_slots = cursor.fetchall()
 
             # INSERT ATTENDANCE
             for key, value in request.form.items():
                 if key.startswith('attendance_'):
                     student_id = key.split('_')[1]
 
-                    cursor.execute("""
-                        INSERT INTO attendance
-                        (student_id, course_id, batch_id, department_id, semester_id,
-                         section_id, date, start_time, end_time, status, class_type)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                    """, (
-                        student_id, course_id, batch_id, department_id, semester_id,
-                        section_id, attendance_date, start_time, end_time, value, class_type
-                    ))
+                    if class_type == "Practical" and practical_slots:
+                        for st, et in practical_slots:
+                            cursor.execute("""
+                                INSERT INTO attendance
+                                (student_id, course_id, batch_id, department_id, semester_id,
+                                 section_id, date, start_time, end_time, status, class_type)
+                                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                            """, (student_id, course_id, batch_id, department_id, semester_id,
+                                  section_id, attendance_date, st, et, value, "Practical"))
+                    else:
+                        cursor.execute("""
+                            INSERT INTO attendance
+                            (student_id, course_id, batch_id, department_id, semester_id,
+                             section_id, date, start_time, end_time, status, class_type)
+                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        """, (student_id, course_id, batch_id, department_id, semester_id,
+                              section_id, attendance_date, start_time, end_time, value, class_type))
 
             conn.commit()
             flash("Attendance marked successfully!", "success")
@@ -1885,6 +2017,7 @@ def timetable():
     selected_department = None
     selected_semester = None
     selected_section = None
+    form_submitted = False
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -1901,6 +2034,7 @@ def timetable():
 
         if request.method == 'POST':
 
+            form_submitted = True
             # ============================
             # GENERATE TIMETABLE
             # ============================
@@ -2020,7 +2154,8 @@ def timetable():
         selected_batch=selected_batch,
         selected_department=selected_department,
         selected_semester=selected_semester,
-        selected_section=selected_section
+        selected_section=selected_section,
+        form_submitted=form_submitted
     )
 
 @app.route('/admin/edit_timetable/<int:timetable_id>', methods=['GET', 'POST'])
@@ -2162,6 +2297,7 @@ def view_timetable():
     batch_name = None
     department_name = None
     section_name = None
+    form_submitted = False
 
     try:
         cursor.execute('SELECT id, name FROM batches ORDER BY name')
@@ -2201,7 +2337,7 @@ def view_timetable():
 
         # ================= FORM SUBMIT =================
         if request.method == 'POST' and 'generate_table' in request.form:
-
+            form_submitted = True
             selected_semester = request.form.get('semester_id')
 
             if session['role'] == 'teacher':
@@ -2300,6 +2436,7 @@ def view_timetable():
         departments=departments,
         semesters=semesters,
         timetable_data=timetable_data,
+        form_submitted=form_submitted,
         selected_batch=selected_batch,
         selected_department=selected_department,
         selected_section=selected_section,
@@ -2741,95 +2878,124 @@ def manage_attendance():
     conn = get_db_connection()
     cursor = conn.cursor()
 
+    form_submitted = False
+
     try:
-        # Fetch dropdown data
-        cursor.execute('SELECT * FROM batches')
+        cursor.execute('SELECT id, name FROM batches ORDER BY name')
         batches = cursor.fetchall()
-        cursor.execute('SELECT * FROM courses')
-        courses = cursor.fetchall()
-        cursor.execute('SELECT * FROM semesters')
-        semesters = cursor.fetchall()
-        cursor.execute('SELECT * FROM departments')
+
+        cursor.execute('SELECT id, name FROM departments ORDER BY name')
         departments = cursor.fetchall()
 
+        cursor.execute('SELECT id, name FROM semesters ORDER BY name')
+        semesters = cursor.fetchall()
+
         attendance_data = []
-        selected_batch = selected_course = selected_semester = selected_department = ''
+
+        selected_batch = selected_department = selected_semester = selected_course = selected_section = ''
         search_id = search_date = ''
 
         if request.method == 'POST':
-            selected_batch = request.form.get('batch_id', '')
-            selected_course = request.form.get('course_id', '')
-            selected_semester = request.form.get('semester_id', '')
-            selected_department = request.form.get('department_id', '')
+            form_submitted = True
+            selected_batch = request.form.get('batch_id')
+            selected_department = request.form.get('department_id')
+            selected_semester = request.form.get('semester_id')
+            selected_course = request.form.get('course_id')
+            selected_section = request.form.get('section_id') or None
+
             search_id = request.form.get('search_id', '').strip()
             search_date = request.form.get('search_date', '').strip()
 
-            query = '''
-                SELECT attendance.id, users.id, users.name, attendance.date,
-                       attendance.start_time, attendance.end_time,
-                       courses.name, attendance.status
-                FROM attendance
-                JOIN users ON attendance.student_id = users.id
-                JOIN courses ON attendance.course_id = courses.id
-                WHERE users.batch_id = %s
-                  AND attendance.course_id = %s
-                  AND courses.semester_id = %s
-                  AND users.department_id = %s
-            '''
-            params = [selected_batch, selected_course, selected_semester, selected_department]
+            if not (selected_batch and selected_department and selected_semester and selected_course):
+                flash("Please select all required fields.", "warning")
+            else:
+                query = '''
+                    SELECT a.id, u.id, u.name, a.date,
+                           a.start_time, a.end_time,
+                           c.name, a.status
+                    FROM attendance a
+                    JOIN users u ON a.student_id = u.id
+                    JOIN courses c ON a.course_id = c.id
+                    WHERE u.batch_id = %s
+                      AND u.department_id = %s
+                      AND a.course_id = %s
+                      AND c.semester_id = %s
+                '''
+                params = [selected_batch, selected_department, selected_course, selected_semester]
 
-            if search_id:
-                query += ' AND users.id LIKE %s'
-                params.append(f'%{search_id}%')
+                if selected_section:
+                    query += ' AND u.section_id = %s'
+                    params.append(selected_section)
 
-            if search_date:
-                query += ' AND attendance.date = %s'
-                params.append(search_date)
+                if search_id:
+                    query += ' AND (u.id::text ILIKE %s OR u.name ILIKE %s)'
+                    params.extend([f'%{search_id}%', f'%{search_id}%'])
 
-            cursor.execute(query, params)
-            results = cursor.fetchall()
+                if search_date:
+                    query += ' AND a.date = %s'
+                    params.append(search_date)
 
-            # Convert time to 12-hour format and sort by ID
-            def convert_time(t):
-                return datetime.strptime(t, "%H:%M").strftime("%I:%M %p") if t else ''
+                query += ' ORDER BY a.date DESC, u.id'
 
-            def extract_numeric_id(sid):
-                match = re.search(r'(\d+)$', sid)
-                return int(match.group()) if match else float('inf')
+                cursor.execute(query, params)
+                results = cursor.fetchall()
 
-            attendance_data = sorted([
-                (
-                    r[0], r[1], r[2], r[3],
-                    convert_time(r[4]), convert_time(r[5]),
-                    r[6], r[7]
-                )
-                for r in results
-            ], key=lambda x: extract_numeric_id(x[1]))
+                def convert_time(t):
+                    if not t:
+                        return ''
+                    if isinstance(t, str):
+                        try:
+                            return datetime.strptime(t[:5], "%H:%M").strftime("%I:%M %p")
+                        except:
+                            return t
+                    return t.strftime("%I:%M %p")
 
-        return render_template('manage_attendance.html',
-                               batches=batches, courses=courses,
-                               semesters=semesters, departments=departments,
-                               attendance_data=attendance_data,
-                               selected_batch=selected_batch,
-                               selected_course=selected_course,
-                               selected_semester=selected_semester,
-                               selected_department=selected_department,
-                               search_id=search_id,
-                               search_date=search_date)
+
+                def format_date(d):
+                    if not d:
+                        return ''
+                    if isinstance(d, str):
+                        try:
+                            return datetime.strptime(d, "%Y-%m-%d").strftime("%d-%m-%Y")
+                        except:
+                            return d
+                    return d.strftime("%d-%m-%Y")
+
+
+                attendance_data = [
+                    (
+                        r[0], r[1], r[2],
+                        format_date(r[3]),
+                        convert_time(r[4]),
+                        convert_time(r[5]),
+                        r[6], r[7]
+                    )
+                    for r in results
+                ]
+
+        return render_template(
+            'manage_attendance.html',
+            batches=batches,
+            departments=departments,
+            semesters=semesters,
+            attendance_data=attendance_data,
+            selected_batch=selected_batch,
+            selected_department=selected_department,
+            selected_semester=selected_semester,
+            selected_course=selected_course,
+            selected_section=selected_section,
+            search_id=search_id,
+            search_date=search_date,
+            form_submitted=form_submitted 
+        )
+
     except Exception as e:
-        flash(f'Error fetching attendance data: {str(e)}', 'error')
-        return render_template('manage_attendance.html',
-                               batches=[], courses=[],
-                               semesters=[], departments=[],
-                               attendance_data=[],
-                               selected_batch='',
-                               selected_course='',
-                               selected_semester='',
-                               selected_department='',
-                               search_id='',
-                               search_date='')
+        flash(f'Error fetching attendance data: {str(e)}', 'danger')
+        return redirect(url_for('manage_attendance'))
+
     finally:
         conn.close()
+
 
 
 @app.route('/admin/update_attendance/<int:attendance_id>', methods=['GET', 'POST'])
@@ -2859,7 +3025,7 @@ def update_attendance(attendance_id):
 
     return render_template('update_attendance.html', attendance_record=attendance_record)
 
-@app.route('/admin/delete_attendance/<int:attendance_id>')
+@app.route('/admin/delete_attendance/<int:attendance_id>', methods=['POST'])
 @role_required("admin")
 def delete_attendance(attendance_id):
     conn = get_db_connection()
@@ -2870,13 +3036,6 @@ def delete_attendance(attendance_id):
     flash('Attendance deleted successfully!', 'success')
     return redirect(url_for('manage_attendance'))
  
-from io import BytesIO
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-
 def generate_timetable_pdf(timetable_data, batch_name, department_name, semester_name):
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -2897,6 +3056,24 @@ def generate_timetable_pdf(timetable_data, batch_name, department_name, semester
     )
 
     elements = []
+
+        # ---------- Logo + University Title ----------
+    try:
+        # Add Logo (adjust width/height as needed)
+        logo = Image('static/uni_logo.png', width=1*inch, height=1*inch)
+        logo.hAlign = 'CENTER'
+        elements.append(logo)
+    except Exception as e:
+        # If logo not found, continue without it
+        pass
+
+    # University Title
+    uni_title = Paragraph(
+        "<para align='center'><b>BENAZIR BHUTTO SHAHEED UNIVERSITY OF TECHNOLOGY AND SKILL DEVELOPMENT KHAIRPUR</b></para>",
+        styles['Title']
+    )
+    elements.append(uni_title)
+    elements.append(Spacer(1, 0.2 * inch))
 
     # Title
     title = Paragraph(
@@ -3111,6 +3288,6 @@ def convert_to_12h(time_str):
 
 
 if __name__ == '__main__':
-    init_db()
+    #init_db()
     #app.run(debug=True)
     app.run(host="0.0.0.0", port=5000, debug=True)

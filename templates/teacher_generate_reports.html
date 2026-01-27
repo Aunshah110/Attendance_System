@@ -84,27 +84,6 @@
     justify-content:center;
   }
 
-  /* BUTTON – SMALLER & PROFESSIONAL */
- .btnn{
-    width: auto;
-    min-width: 220px;
-    max-width: 260px;
-    padding: 10px 16px;
-    border-radius: 10px;
-    font-size: 0.9rem;
-    margin: 1.2rem auto 0;
-    font-weight: 800;
-    letter-spacing: 0.6px;
-    background: linear-gradient(180deg, var(--yellow), #f6c95a);
-    border: 2px solid rgba(0,0,0,0.08);
-    transition: var(--transition);
-  }
-
- .btnn:hover{
-    transform: translateY(-3px);
-    box-shadow: 0 12px 28px rgba(0,0,0,0.35);
-  }
-
   /* Form styling */
   form{
     width:100%;
@@ -154,55 +133,44 @@
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: var(--cream);
-  color: var(--black);
-  font-size: 0.95rem;
-  min-width: 600px; /* Minimum width for table */
-}
 
-/* Updated table header - black with white text */
-thead {
-  background: var(--black) !important;
-  color: var(--cream);
-}
-
-th, td {
-  padding: 12px 15px;
-  text-align: left;
-  border-bottom: 1px solid rgba(0,0,0,0.1);
-}
-
-th {
-  font-weight: 600;
-  position: sticky;
-  top: 0;
-}
-  
-  tbody tr:hover {
-    background-color: rgba(210, 166, 121, 0.2);
+  /* Table styling */
+  table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:1.2rem;
+    font-size:0.9rem;
+    background: rgba(255,255,255,0.04);
+    border-radius:10px;
+    overflow:hidden;
   }
   
-  /* Responsive adjustments for table */
-  @media screen and (max-width: 768px) {
-    th, td {
-      padding: 10px 8px;
-      font-size: 0.85rem;
+  thead{
+    background: var(--brown-dark);
+    color: var(--cream);
+  }
+  
+  th,td{
+    padding:10px 12px;
+    text-align:left;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+    color: var(--black);
+    background: rgba(255,255,255,0.85);
+  }
+  
+  tr:hover td{ background: rgba(255,210,74,0.25); }
+  
+  @media (max-width:720px){
+    table, thead, tbody, th, td, tr{ display:block; }
+    thead{ display:none; }
+    tr{ margin-bottom:10px; border-radius:8px; overflow:hidden; }
+    td{ padding:8px; display:flex; justify-content:space-between; font-size:0.85rem; }
+    td::before{
+      content: attr(data-label);
+      font-weight:bold;
+      color: var(--brown-dark);
     }
-    
-    /* Stack table headers on very small screens */
-    @media screen and (max-width: 480px) {
-      table {
-        min-width: 300px;
-      }
-      
-      th, td {
-        padding: 8px 5px;
-        font-size: 0.8rem;
-      }
-    }
+    .form-grid { grid-template-columns: 1fr; }
   }
 
   /* Form responsive adjustments */
@@ -213,54 +181,19 @@ th {
     width: 100%;
     margin-bottom: 1.5rem;
   }
-  
-  /* Button container responsive adjustments */
-  .button-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    justify-content: center;
-    margin-top: 1.5rem;
-  }
-  
-  .button-container .btnn {
-    flex: 1;
-    min-width: 150px;
-    max-width: 200px;
-  }
 
   /* Report title responsive adjustments */
   .report-title {
     margin: 1.5rem 0;
     font-size: clamp(1.2rem, 2.5vw, 1.5rem);
     font-weight: 600;
-    color: var(--yellow);
+    color: white;
     text-align: center;
     line-height: 1.4;
   }
 
-  .no-data-alert{
-  margin-top: 1.5rem;
-  padding: 14px 18px;
-  border-radius: 10px;
-  background: rgba(255, 210, 74, 0.18);
-  border: 1.5px solid var(--yellow);
-  color: var(--brown-dark);
-  font-weight: 600;
-  text-align: center;
-}
-
-
-  /* Page title */
-  h1{
-    margin:0;
-    font-size: clamp(1.4rem, 3vw, 2rem);
-    font-weight:800;
-    color: var(--yellow);
-    text-align:center;
-    padding-top:8px;
-  }
 </style>
+<link rel="style" href="style.css">
 
 <div class="teacher-wrapper">
   <div class="dashboard-card">
@@ -292,6 +225,13 @@ th {
               {% endfor %}
             </select>
           </div>
+          <!-- Section -->
+          <div id="sectionWrapper" style="display:none;">
+            <label class="form-label">Section</label>
+            <select class="form-select" name="section_id" id="section_id">
+              <option value="">Select Section</option>
+            </select>
+          </div>
           <div>
             <label for="semester_id" class="form-label">Semester</label>
             <select class="form-select" id="semester_id" name="semester_id" onchange="reloadFilters()">
@@ -303,24 +243,36 @@ th {
               {% endfor %}
             </select>
           </div>
+          <!-- Course -->
           <div>
-            <label for="course_id" class="form-label">Course</label>
-            <select class="form-select" id="course_id" name="course_id" required {% if not courses %}disabled{% endif %}>
-              <option value="">-- Select Course --</option>
-              {% for course in courses %}
-                <option value="{{ course[0] }}">{{ course[1] }}</option>
+            <label class="form-label">Course</label>
+            <select class="form-select" name="course_id" id="course_id" required
+                    {% if not courses %}disabled{% endif %}>
+              <option value="">Select Course</option>
+              {% for c in courses %}
+                <option value="{{ c[0] }}"
+                  {% if request.args.get('course_id') == c[0]|string %}selected{% endif %}>
+                  {{ c[1] }}
+                </option>
               {% endfor %}
             </select>
           </div>
         </div>
-        <div style="text-align: center;">
-          <button type="submit" class="btnn"><span>Generate Report</span></button>
+        <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
+          <button type="submit" class="btn-dashboard"><span>Generate Report</span></button>
+          <a href="{{ url_for('home') }}" class="btn-dashboard"><span>Back</span></a>
         </div>
       </form>
 
       {% if report_data %}
       <div class="w-100">
-        <h3 class="report-title">Report for {{ batch_name }}, Department: {{ dept_name }}, {{ semester_name }}, Course: {{ course_name }}</h3>
+        <h3 class="report-title">
+          Report for {{ batch_name }},
+          Department: {{ dept_name }}
+          {% if section_name %}, {{ section_name }}{% endif %},
+          {{ semester_name }},
+          Course: {{ course_name }}
+        </h3>
         
         <div class="table-container">
           <table>
@@ -336,11 +288,13 @@ th {
             <tbody>
               {% for student in report_data %}
                 <tr>
-                  <td>{{ student[0] }}</td>
-                  <td>{{ student[1] }}</td>
-                  <td>{{ student[2] }}</td>
-                  <td>{{ student[3] }}</td>
-                  <td>{{ student[4] }}%</td>
+                  <tr>
+                    <td data-label="Student ID">{{ student[0] }}</td>
+                    <td data-label="Name">{{ student[1] }}</td>
+                    <td data-label="Total Days">{{ student[2] }}</td>
+                    <td data-label="Present Days">{{ student[3] }}</td>
+                    <td data-label="Percentage">{{ student[4] }}%</td>
+                  </tr>
                 </tr>
               {% endfor %}
             </tbody>
@@ -353,18 +307,14 @@ th {
             <input type="hidden" name="department_id" value="{{ selected_department }}">
             <input type="hidden" name="semester_id" value="{{ selected_semester }}">
             <input type="hidden" name="course_id" value="{{ selected_course }}">
-            <div>
-            <button type="submit" name="export_csv" class="btnn"><span>Export as CSV</span></button>
-            <button type="submit" name="export_pdf" class="btnn"><span>Export as PDF</span></button>
+            <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
+            <button type="submit" name="export_csv" class="btn-dashboard"><span>Export as CSV</span></button>
+            <button type="submit" name="export_pdf" class="btn-dashboard"><span>Export as PDF</span></button>
             </div>
           </form>
         </div>
       </div>
-      {% else %}
-      <!-- ⚠️ NO DATA MESSAGE -->
-        <div class="no-data-alert">
-            ⚠️ No records available for the selected Batch, Department and Semester.
-        </div>
+
       {% endif %}
 
     </div>
@@ -372,20 +322,79 @@ th {
 </div>
 
 <script>
-function reloadFilters() {
-    const batch = document.getElementById('batch_id').value;
-    const department = document.getElementById('department_id').value;
-    const semester = document.getElementById('semester_id').value;
+document.addEventListener('DOMContentLoaded', () => {
 
-    const params = new URLSearchParams();
+  const batch = document.getElementById('batch_id');
+  const dept = document.getElementById('department_id');
+  const semester = document.getElementById('semester_id');
+  const section = document.getElementById('section_id');
+  const sectionWrap = document.getElementById('sectionWrapper');
+  const course = document.getElementById('course_id');
 
-    if (batch) params.append('batch_id', batch);
-    if (department) params.append('department_id', department);
-    if (semester) params.append('semester_id', semester);
+  const urlParams = new URLSearchParams(window.location.search);
+  const preSelectedSection = urlParams.get('section_id');
 
-    window.location.href = '/teacher/generate_reports?' + params.toString();
+  function resetSection(){
+    section.innerHTML='';
+    sectionWrap.style.display='none';
+    section.removeAttribute('required');
+  }
+
+  function loadSections(keepSelection=false){
+  resetSection();
+
+  if(!batch.value || !dept.value) return;
+
+  fetch(`/admin/check_sections?batch_id=${batch.value}&department_id=${dept.value}`)
+    .then(r=>r.json())
+    .then(data=>{
+      if(data.length){
+        section.innerHTML='<option value="">Select Section</option>';
+        data.forEach(s=>{
+          const o=document.createElement('option');
+          o.value=s[0];
+          o.textContent=s[1];
+          if(keepSelection && preSelectedSection === String(s[0])) o.selected=true;
+          section.appendChild(o);
+        });
+        sectionWrap.style.display='block';
+        section.setAttribute('required','required');
+      }
+    });
 }
+
+
+  function fetchCourses(){
+    if(!batch.value || !dept.value || !semester.value) return;
+    if(sectionWrap.style.display==='block' && !section.value) return;
+
+    const params = new URLSearchParams({
+      batch_id: batch.value,
+      department_id: dept.value,
+      semester_id: semester.value
+    });
+
+    if(section.value) params.append('section_id', section.value);
+
+    window.location = `/teacher/generate_reports?${params.toString()}`;
+  }
+
+  /* ---------- EVENTS ---------- */
+
+  batch.addEventListener('change', ()=> loadSections(false));
+  dept.addEventListener('change', ()=> loadSections(false));
+  semester.addEventListener('change', fetchCourses);
+  section.addEventListener('change', fetchCourses);
+
+  /* ---------- AUTO RESTORE ON PAGE LOAD ---------- */
+
+  if(batch.value && dept.value){
+    loadSections(true);   // restore section if in URL
+  }
+
+});
 </script>
+
 
 
 {% endblock %}

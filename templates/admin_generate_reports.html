@@ -104,48 +104,6 @@
     box-shadow: 0 0 0 3px rgba(246, 245, 244, 0.25);
   }
 
-  /* Button size refined */
-  .btn-dashboard{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:8px;
-    padding: 10px 18px;
-    min-width: 140px;   /* professional width */
-    max-width: 200px;   /* prevent over-expansion */
-    border-radius: 12px;
-    text-decoration:none;
-    font-weight:800;
-    text-transform:uppercase;
-    letter-spacing:0.7px;
-    font-size: 0.95rem;
-    color: var(--black);
-    background: linear-gradient(180deg, var(--yellow), #f6c95a);
-    border: 2px solid rgba(0,0,0,0.08);
-    box-shadow: 0 6px 18px rgba(122,82,48,0.12),
-                0 2px 6px rgba(0,0,0,0.35),
-                inset 0 -6px 24px rgba(0,0,0,0.06);
-    transition: var(--transition);
-    position:relative;
-    overflow:hidden;
-    margin: 0 auto;      /* centered under fields */
-  }
-  .btn-dashboard span{ position:relative; z-index:1; }
-  .btn-dashboard:hover{
-    transform: translateY(-3px);
-  }
-
-  /* Small action buttons for table/export */
-  .btn-dashboard.btn-sm{
-    width: auto;
-    max-width: none;
-    padding: 6px 14px;
-    font-size: 0.82rem;
-    letter-spacing: 0.4px;
-    border-radius: 8px;
-  }
-
-
   /* Table styling */
   table{
     width:100%;
@@ -171,14 +129,6 @@
   }
   
   tr:hover td{ background: rgba(255,210,74,0.25); }
-  
-  h1 {
-    color: var(--cream);
-    text-align: center;
-    margin-bottom: 1rem;
-    font-size: 1.8rem;
-    text-shadow: 0 2px 3px rgba(0,0,0,0.25);
-  }
 
   .form-grid {
     display: grid;
@@ -186,17 +136,6 @@
     gap: 1rem;
     margin-bottom: 1rem;
   }
-
-.no-data-alert{
-  margin-top: 1.5rem;
-  padding: 14px 18px;
-  border-radius: 10px;
-  background: rgba(255, 210, 74, 0.18);
-  border: 1.5px solid var(--yellow);
-  color: var(--brown-dark);
-  font-weight: 600;
-  text-align: center;
-}
 
   
   @media (max-width:720px){
@@ -212,6 +151,7 @@
     .form-grid { grid-template-columns: 1fr; }
   }
 </style>
+<link rel="stylesheet" href="style.css">
 
 <div class="admin-wrapper">
   <div class="dashboard-card">
@@ -239,7 +179,14 @@
                 {% endfor %}
             </select>
           </div>
-          
+          <div id="sectionWrapper" style="display:none;">
+            <label class="form-label">Section</label>
+            <select class="form-select"
+                    id="section_id"
+                    name="section_id"
+                    data-selected="{{ selected_section or '' }}">
+            </select>
+          </div>
           <div>
             <label for="semester_id" class="form-label">Semester</label>
             <select class="form-select" id="semester_id" name="semester_id" required>
@@ -250,19 +197,26 @@
             </select>
           </div>
         </div>
-        
-        <button type="submit" class="btn-dashboard"><span>Generate Report</span></button>
+        <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
+          <button type="submit" class="btn-dashboard"><span>Generate Report</span></button>
+          <a href="{{ url_for('home') }}" class="btn-dashboard"><span>Back</span></a>
+        </div>
       </form>
       
       <!-- Table + Export + Search remain unchanged -->
       {% if report_data %}
         <div class="mt-5">
-          <h3>Report for {{ batch_name }}, Department: {{ dept_name }}, {{ semester_name }}</h3>
+          <h4 style="text-align: center;">
+            Report for {{ batch_name }},
+            Department: {{ dept_name }}
+            {% if section_name %}
+              , {{ section_name }}
+            {% endif %}
+            , {{ semester_name }}
+          </h4>
           
           <div style="display:flex; justify-content:center; margin-bottom:0.8rem;">
-            <input type="text" id="searchBox" class="form-input" 
-                   placeholder="Search by Student ID or Name..." 
-                   style="max-width:300px; width:100%;">
+            <input type="text" id="searchBox" class="form-input" placeholder="Search by Student ID or Name..." autofocus>
           </div>
 
           <table id="reportTable">
@@ -295,20 +249,105 @@
               <input type="hidden" name="batch_id" value="{{ selected_batch }}">
               <input type="hidden" name="department_id" value="{{ selected_department }}">
               <input type="hidden" name="semester_id" value="{{ selected_semester }}">
-              <div class="button-container">
-              <button type="submit" name="export_csv" class="btn-dashboard btn-sm"><span>Export as CSV</span></button>
-              <button type="submit" name="export_pdf" class="btn-dashboard btn-sm"><span>Export as PDF</span></button>
+              <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
+                <button type="submit" name="export_csv" class="btn-dashboard btn-sm"><span>Export as CSV</span></button>
+                <button type="submit" name="export_pdf" class="btn-dashboard btn-sm"><span>Export as PDF</span></button>
               </div>
             </form>
           </div>
         </div>
-      {% else %}
+      {% elif form_submitted %}
         <!-- ⚠️ NO DATA MESSAGE -->
         <div class="no-data-alert">
-            ⚠️ No records available for the selected Batch, Department and Semester.
+            ⚠️ No records available.
         </div> 
       {% endif %}
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', ()=>{
+
+  const batch = document.getElementById('batch_id');
+  const dept = document.getElementById('department_id');
+  const section = document.getElementById('section_id');
+  const wrap = document.getElementById('sectionWrapper');
+
+  const selectedSection = section.dataset.selected || '';
+
+  function resetSection(){
+    section.innerHTML='';
+    section.required = false;
+    wrap.style.display='none';
+  }
+
+  function loadSections(){
+    resetSection();
+    if(!batch.value || !dept.value) return;
+
+    fetch(`/admin/check_sections?batch_id=${batch.value}&department_id=${dept.value}`)
+      .then(r=>r.json())
+      .then(data=>{
+        if(data.length){
+          section.innerHTML='<option value="">Select Section</option>';
+          data.forEach(s=>{
+            const o=document.createElement('option');
+            o.value=s[0];
+            o.textContent=s[1];
+            section.appendChild(o);
+          });
+
+          wrap.style.display='block';
+          section.required = true;
+
+          if(selectedSection){
+            section.value = selectedSection;
+          }
+        }
+      })
+      .catch(()=>resetSection());
+  }
+
+  batch.addEventListener('change', loadSections);
+  dept.addEventListener('change', loadSections);
+
+  // Restore on page load (after submit)
+  loadSections();
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+
+  const searchBox = document.getElementById('searchBox');
+  const table = document.getElementById('reportTable');
+  const noRecord = document.getElementById('noRecord');
+
+  if (!searchBox || !table) return;
+
+  const rows = Array.from(table.querySelectorAll('tbody tr'));
+
+  searchBox.addEventListener('input', function () {
+    const q = this.value.toLowerCase().trim();
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+      const id = row.children[0].innerText.toLowerCase();
+      const name = row.children[1].innerText.toLowerCase();
+
+      if (id.includes(q) || name.includes(q)) {
+        row.style.display = '';
+        visibleCount++;
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    if (noRecord) {
+      noRecord.style.display = visibleCount ? 'none' : 'block';
+    }
+  });
+
+});
+</script>
+
 {% endblock %}

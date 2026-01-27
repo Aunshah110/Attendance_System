@@ -81,14 +81,6 @@
     align-items:center;
   }
 
-  h1{
-    font-size: clamp(1.4rem, 3.2vw, 2rem);
-    font-weight:800;
-    color: var(--yellow);
-    text-align:center;
-    margin-bottom: 1rem;
-  }
-
   /* Form inputs */
   .form-label{
     font-weight:600;
@@ -129,7 +121,7 @@
 <div class="admin-wrapper">
   <div class="dashboard-card" role="region" aria-label="Edit Teacher">
     <div class="dashboard-inner">
-      <h1>Edit Teacher</h1>
+      <h1>Update Teacher</h1>
       <form method="POST" action="{{ url_for('edit_teacher', teacher_id=teacher[0]) }}">
         <div>
           <label for="name" class="form-label">Name</label>
@@ -148,8 +140,7 @@
           <label for="confirm_password" class="form-label">Confirm New Password</label>
           <input type="password" class="form-control" id="confirm_password" name="confirm_password">
         </div>
-        <hr>
-        <div class="action-buttons">
+        <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
           <button type="submit" class="btn-dashboard"><span>Update Teacher</span></button>
           <a href="{{ url_for('manage_teachers') }}" class="btn-dashboard"><span>Cancel</span></a>
         </div>

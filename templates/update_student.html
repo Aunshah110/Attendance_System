@@ -72,14 +72,6 @@
     align-items:center;
   }
 
-  h1{
-    margin:0;
-    font-size: clamp(1.4rem, 3vw, 2rem);
-    font-weight:800;
-    color: var(--yellow);
-    text-align:center;
-    padding-top:8px;
-  }
 
   /* Form inputs */
   .form-label{
@@ -172,7 +164,7 @@
                  placeholder="Re-enter new password">
         </div>
 
-        <div style="text-align: center;">
+        <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
           <button type="submit" class="btn-dashboard"><span>Update Student</span></button>
           <a href="{{ url_for('view_students') }}" class="btn-dashboard"><span>Cancel</span></a>
         </div>

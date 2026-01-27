@@ -65,26 +65,6 @@
     gap: 1.5rem;
   }
 
-  h1 {
-    color: var(--cream);
-    text-align: center;
-    margin-bottom: 2rem;
-    font-weight: 700;
-    position: relative;
-  }
-  
-  h1::after {
-    content: "";
-    position: absolute;
-    bottom: -10px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 80px;
-    height: 4px;
-    background: linear-gradient(to right, var(--yellow), var(--brown-mid));
-    border-radius: 3px;
-  }
-
   /* Form styling */
   form{
     width:100%;
@@ -125,29 +105,37 @@
     box-shadow: 0 0 0 4px rgba(246, 245, 244, 0.25);
   }
 
-  /* Filter button */
-.btn-dashboard{
-  display: inline-flex;            /* inline-flex keeps it content-based */
-  align-items: center;
-  justify-content: center;
-  padding: 10px 20px;              /* nice professional padding */
-  min-width: 140px;                /* ensures button not too small */
-  max-width: 200px;                /* limits over-expansion */
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  background: linear-gradient(180deg, var(--yellow), #f6c95a);
-  color: var(--black);
-  border: 1.5px solid rgba(0,0,0,0.1);
-  text-decoration: none;
-  transition: var(--transition);
-  margin: 0 auto;                  /* centers the button */
+  /* -------- SEARCH SECTION UX FIX -------- */
+
+.search-section{
+  margin-top: 2rem;
 }
 
-.btn-dashboard:hover{
-  transform: translateY(-3px);
+.search-grid{
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.9rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.search-grid .form-control{
+  padding: 8px 10px;
+  font-size: 0.9rem;
+}
+
+/* Tablet */
+@media (max-width: 900px){
+  .search-grid{
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Mobile */
+@media (max-width: 520px){
+  .search-grid{
+    grid-template-columns: 1fr;
+  }
 }
 
   /* Table styling (unchanged behavior) */
@@ -254,8 +242,38 @@
       width: 100%;
       margin-bottom: 5px;
     }
+
+     td[data-label="Action"]{
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  td[data-label="Action"]::before{
+    display: none !important;
+  }
+
+  td[data-label="Action"] form{
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+  }
+
+  td[data-label="Action"] button,
+  td[data-label="Action"] .btn-dashboard{
+    float: none !important;
+    margin: 0 auto !important;
+    display: inline-flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    max-width: 180px;
+    width: 100%;
+  }
   }
 </style>
+<link rel="stylesheet" href="style.css">
 
 <div class="admin-wrapper">
   <div class="dashboard-card" role="region" aria-label="Attendance Management">
@@ -283,7 +301,14 @@
                 {% endfor %}
             </select>
           </div>
-
+          <div id="sectionWrapper"
+             data-selected="{{ selected_section or '' }}"
+             style="display:none;">
+            <label for="section_id" class="form-label">Section</label>
+            <select class="form-select" id="section_id" name="section_id">
+              <option value="">Select Section</option>
+            </select>
+          </div>
           <div>
             <label for="semester_id" class="form-label">Semester</label>
             <select class="form-select" id="semester_id" name="semester_id" required>
@@ -296,13 +321,16 @@
 
           <div>
             <label for="course_id" class="form-label">Course</label>
-            <select class="form-select" id="course_id" name="course_id" disabled required>
+            <select class="form-select" id="course_id" name="course_id" disabled required
+               data-selected="{{ selected_course or '' }}">
               <option value="">-- Select Course --</option>
             </select>
           </div>
         </div>
-
-        <button type="submit" class="btn-dashboard"><span>Fetch Attendance</span></button>
+        <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
+          <button type="submit" class="btn-dashboard"><span>Fetch Attendance</span></button>
+          <a href="{{ url_for('home') }}" class="btn-dashboard"><span>Back</span></a>
+        </div>
       </form>
 
       {% if attendance_data %}
@@ -310,28 +338,25 @@
         <h3 style="color: var(--cream); margin-bottom: 1.5rem; text-align: center;">Search Attendance Records</h3>
         <div class="search-grid">
           <div>
-            <label for="search_id_name" class="form-label">Student ID or Name</label>
-            <input type="text" class="form-control" id="search_id_name" placeholder="Enter ID or name...">
+            <label for="search_id_name" class="form-label">Student ID / Name</label>
+            <input type="text" class="form-control" id="search_id_name" placeholder="ID or name">
           </div>
+        
           <div>
             <label for="search_date" class="form-label">Date</label>
             <input type="date" class="form-control" id="search_date">
           </div>
+        
           <div>
             <label for="search_start_time" class="form-label">Start Time</label>
             <input type="time" class="form-control" id="search_start_time">
           </div>
+        
           <div>
             <label for="search_end_time" class="form-label">End Time</label>
             <input type="time" class="form-control" id="search_end_time">
           </div>
         </div>
-        <div class="search-alert" id="noRecordsAlert">
-          No records found matching your search criteria.
-        </div>
-      </div>
-      
-      <h2 style="color: var(--cream); margin-top: 2rem;">Attendance Data</h2>
       <table id="attendanceTable">
         <thead>
           <tr>
@@ -356,20 +381,24 @@
             <td data-label="End Time">{{ entry[5] }}</td>
             <td data-label="Course">{{ entry[6] }}</td>
             <td data-label="Status">{{ entry[7] }}</td>
-            <td data-label="Update">
-              <a href="{{ url_for('update_attendance', attendance_id=entry[0]) }}" class="btn-action btn-update">Update</a>
+            <td data-label="Action">
+              <a href="{{ url_for('update_attendance', attendance_id=entry[0]) }}" class="btn-action btn-dashboard btn-sm">Update</a>
             </td>
-            <td data-label="Delete">
-              <a href="{{ url_for('delete_attendance', attendance_id=entry[0]) }}" class="btn-action btn-delete">Delete</a>
+            <td data-label="Action">
+              <form id="deleteForm-{{ entry[0] }}" method="POST" action="{{ url_for('delete_attendance', attendance_id=entry[0]) }}">
+                <button type="button" class="delete-btn btn-action btn-dashboard btn-sm" data-form-id="deleteForm-{{ entry[0] }}">
+                  Delete
+                </button>
+              </form>
             </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
-      {% else %}
+      {% elif form_submitted %}
         <!-- ⚠️ NO DATA MESSAGE -->
         <div class="no-data-alert">
-            ⚠️ No records available for the selected Batch, Department and Semester.
+            ⚠️ No records available.
         </div>
 
       {% endif %}
@@ -377,136 +406,234 @@
   </div>
 </div>
 
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal-overlay" aria-hidden="true">
+  <div class="modal-card">
+    <h3>Confirm Deletion</h3>
+    <p>
+      Are you sure you want to delete this Record?
+      <br>
+      <strong>All related records will also be deleted.</strong>
+    </p>
+
+    <div class="modal-actions">
+      <button class="btn-dashboard" id="confirmDelete">
+        <span>Yes, Delete</span>
+      </button>
+      <button class="btn-dashboard cancel-btn" id="cancelDelete">
+        <span>Cancel</span>
+      </button>
+    </div>
+  </div>
+</div>
+
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const batchSelect = document.getElementById('batch_id');
-    const departmentSelect = document.getElementById('department_id');
-    const semesterSelect = document.getElementById('semester_id');
-    const courseSelect = document.getElementById('course_id');
+document.addEventListener('DOMContentLoaded', function () {
 
-    function fetchCourses() {
-        const batch_id = batchSelect.value;
-        const department_id = departmentSelect.value;
-        const semester_id = semesterSelect.value;
+  const batch = document.getElementById('batch_id');
+  const dept = document.getElementById('department_id');
+  const semester = document.getElementById('semester_id');
+  const course = document.getElementById('course_id');
 
-        if(batch_id && department_id && semester_id){
-            fetch('/get_courses', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({batch_id, department_id, semester_id})
-            })
-            .then(response => response.json())
-            .then(data => {
-                courseSelect.innerHTML = '<option value="">-- Select Course --</option>';
-                if(data.length > 0){
-                    data.forEach(course => {
-                        const option = document.createElement('option');
-                        option.value = course.id;
-                        option.textContent = course.name;
-                        courseSelect.appendChild(option);
-                    });
-                    courseSelect.disabled = false;
-                } else {
-                    courseSelect.disabled = true;
-                }
-            })
-            .catch(err => {
-                console.error('Error fetching courses:', err);
-                courseSelect.disabled = true;
-            });
-        } else {
-            courseSelect.innerHTML = '<option value="">-- Select Course --</option>';
-            courseSelect.disabled = true;
-        }
+  const sectionWrap = document.getElementById('sectionWrapper');
+  const section = document.getElementById('section_id');
+
+  const savedSection = sectionWrap.dataset.selected || '';
+  const savedCourse = course.dataset.selected || '';
+
+  /* -------- SECTION -------- */
+
+  function resetSection(){
+    section.innerHTML = '<option value="">Select Section</option>';
+    sectionWrap.style.display = 'none';
+    section.removeAttribute('required');
+  }
+
+  function loadSections(auto=false){
+    resetSection();
+    course.disabled = true;
+
+    if(!batch.value || !dept.value){
+      fetchCourses(auto);
+      return;
     }
 
-    batchSelect.addEventListener('change', fetchCourses);
-    departmentSelect.addEventListener('change', fetchCourses);
-    semesterSelect.addEventListener('change', fetchCourses);
-
-
-        // Enhanced Search Filter Logic with 4 search boxes
-        const searchIdName = document.getElementById('search_id_name');
-        const searchDate = document.getElementById('search_date');
-        const searchStartTime = document.getElementById('search_start_time');
-        const searchEndTime = document.getElementById('search_end_time');
-        const noRecordsAlert = document.getElementById('noRecordsAlert');
-
-        function filterTable() {
-            const idNameValue = searchIdName.value.toLowerCase().trim();
-            const dateValue = searchDate.value.trim();
-            const startTimeValue = searchStartTime.value.trim();
-            const endTimeValue = searchEndTime.value.trim();
-            
-            const rows = document.querySelectorAll('#attendanceTable tbody tr');
-            let visibleRows = 0;
-
-            // Reset all highlights first
-            rows.forEach(row => {
-                const cells = row.querySelectorAll('td');
-                cells.forEach(cell => {
-                    cell.classList.remove('highlight');
-                });
-            });
-
-            rows.forEach(row => {
-                const idCell = row.querySelector('td:nth-child(1)');
-                const nameCell = row.querySelector('td:nth-child(2)');
-                const dateCell = row.querySelector('td:nth-child(3)');
-                const startTimeCell = row.querySelector('td:nth-child(4)');
-                const endTimeCell = row.querySelector('td:nth-child(5)');
-
-                // Check if all search criteria match
-                const matchIdName = !idNameValue || 
-                    idCell.textContent.toLowerCase().includes(idNameValue) || 
-                    nameCell.textContent.toLowerCase().includes(idNameValue);
-                
-                const matchDate = !dateValue || dateCell.textContent === dateValue;
-                const matchStartTime = !startTimeValue || startTimeCell.textContent === startTimeValue;
-                const matchEndTime = !endTimeValue || endTimeCell.textContent === endTimeValue;
-
-                // Show row only if ALL non-empty search criteria match
-                const shouldShow = matchIdName && matchDate && matchStartTime && matchEndTime;
-
-                row.style.display = shouldShow ? '' : 'none';
-                
-                if (shouldShow) {
-                    visibleRows++;
-                    // Highlight matching cells
-                    if (idNameValue && idCell.textContent.toLowerCase().includes(idNameValue)) {
-                        idCell.classList.add('highlight');
-                    }
-                    if (idNameValue && nameCell.textContent.toLowerCase().includes(idNameValue)) {
-                        nameCell.classList.add('highlight');
-                    }
-                    if (dateValue && dateCell.textContent === dateValue) {
-                        dateCell.classList.add('highlight');
-                    }
-                    if (startTimeValue && startTimeCell.textContent === startTimeValue) {
-                        startTimeCell.classList.add('highlight');
-                    }
-                    if (endTimeValue && endTimeCell.textContent === endTimeValue) {
-                        endTimeCell.classList.add('highlight');
-                    }
-                }
-            });
-
-            // Show/hide no records alert
-            if (visibleRows === 0 && (idNameValue || dateValue || startTimeValue || endTimeValue)) {
-                noRecordsAlert.style.display = 'block';
-            } else {
-                noRecordsAlert.style.display = 'none';
-            }
+    fetch(`/admin/check_sections?batch_id=${batch.value}&department_id=${dept.value}`)
+      .then(r=>r.json())
+      .then(data=>{
+        if(data.length){
+          data.forEach(s=>{
+            const o=document.createElement('option');
+            o.value=s[0]; o.textContent=s[1];
+            if(auto && savedSection && savedSection==s[0]) o.selected=true;
+            section.appendChild(o);
+          });
+          sectionWrap.style.display='block';
+          section.setAttribute('required','required');
         }
+        fetchCourses(auto);
+      })
+      .catch(()=>fetchCourses(auto));
+  }
 
-        // Add event listeners to all search inputs
-        if (searchIdName && searchDate && searchStartTime && searchEndTime) {
-            searchIdName.addEventListener('input', filterTable);
-            searchDate.addEventListener('input', filterTable);
-            searchStartTime.addEventListener('input', filterTable);
-            searchEndTime.addEventListener('input', filterTable);
-        }
+  /* -------- COURSES -------- */
+
+  function fetchCourses(auto=false){
+    if(!batch.value || !dept.value || !semester.value) return;
+    if(sectionWrap.style.display==='block' && !section.value) return;
+
+    fetch('/get_courses',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        batch_id: batch.value,
+        department_id: dept.value,
+        semester_id: semester.value,
+        section_id: section.value || null
+      })
+    })
+    .then(r=>r.json())
+    .then(data=>{
+      course.innerHTML='<option value="">-- Select Course --</option>';
+      if(data.length){
+        data.forEach(c=>{
+          const o=document.createElement('option');
+          o.value=c.id; o.textContent=c.name;
+          if(auto && savedCourse && savedCourse==c.id) o.selected=true;
+          course.appendChild(o);
+        });
+        course.disabled=false;
+      } else {
+        course.disabled=true;
+      }
+    })
+    .catch(()=>course.disabled=true);
+  }
+
+  batch.addEventListener('change', ()=>loadSections(false));
+  dept.addEventListener('change', ()=>loadSections(false));
+  semester.addEventListener('change', ()=>fetchCourses(false));
+  section.addEventListener('change', ()=>fetchCourses(false));
+
+  /* -------- AUTO RESTORE AFTER POST -------- */
+  loadSections(true);
+
+
+  function toISODate(ddmmyyyy){
+  if(!ddmmyyyy || !ddmmyyyy.includes('-')) return '';
+  const [dd, mm, yyyy] = ddmmyyyy.split('-');
+  return `${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
+  }
+
+  function to24Hour(time12h){
+    if(!time12h) return '';
+    const [time, modifier] = time12h.split(' ');
+    if(!time || !modifier) return '';
+    let [hours, minutes] = time.split(':').map(Number);
+    if(modifier.toUpperCase() === 'PM' && hours !== 12) hours += 12;
+    if(modifier.toUpperCase() === 'AM' && hours === 12) hours = 0;
+    return `${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}`;
+  }
+
+
+  /* -------- INITIAL TABLE LIMIT -------- */
+
+  const rows = document.querySelectorAll('#attendanceTable tbody tr');
+  rows.forEach((r,i)=>{ if(i>=20) r.style.display='none'; });
+
+  /* ---------------- SEARCH FILTER (SHOW ALL) ---------------- */
+
+  const searchIdName = document.getElementById('search_id_name');
+  const searchDate = document.getElementById('search_date');
+  const searchStartTime = document.getElementById('search_start_time');
+  const searchEndTime = document.getElementById('search_end_time');
+  const noRecordsAlert = document.getElementById('noRecordsAlert');
+
+  function filterTable() {
+    const idNameValue = searchIdName.value.toLowerCase().trim();
+    const dateValue = searchDate.value.trim();
+    const startTimeValue = searchStartTime.value.trim();
+    const endTimeValue = searchEndTime.value.trim();
+
+    const rows = document.querySelectorAll('#attendanceTable tbody tr');
+    let visibleRows = 0;
+
+    rows.forEach(row => {
+      const cells = row.querySelectorAll('td');
+      cells.forEach(cell => cell.classList.remove('highlight'));
     });
+
+    rows.forEach(row => {
+      const idCell = row.querySelector('td:nth-child(1)');
+      const nameCell = row.querySelector('td:nth-child(2)');
+      const dateCell = row.querySelector('td:nth-child(3)');
+      const startTimeCell = row.querySelector('td:nth-child(4)');
+      const endTimeCell = row.querySelector('td:nth-child(5)');
+
+      const matchIdName = !idNameValue ||
+        idCell.textContent.toLowerCase().includes(idNameValue) ||
+        nameCell.textContent.toLowerCase().includes(idNameValue);
+
+      const rowDateISO = toISODate(dateCell.textContent.trim());
+      const matchDate = !dateValue || rowDateISO === dateValue;
+      const rowStartTime24 = to24Hour(startTimeCell.textContent.trim());
+      const rowEndTime24   = to24Hour(endTimeCell.textContent.trim());
+
+      const matchStartTime = !startTimeValue || rowStartTime24 === startTimeValue;
+      const matchEndTime   = !endTimeValue || rowEndTime24 === endTimeValue;
+
+
+      const shouldShow = matchIdName && matchDate && matchStartTime && matchEndTime;
+
+      row.style.display = shouldShow ? '' : 'none';
+
+      if (shouldShow) {
+        visibleRows++;
+        if (idNameValue && idCell.textContent.toLowerCase().includes(idNameValue)) idCell.classList.add('highlight');
+        if (idNameValue && nameCell.textContent.toLowerCase().includes(idNameValue)) nameCell.classList.add('highlight');
+        if (dateValue && dateCell.textContent === dateValue) dateCell.classList.add('highlight');
+        if (startTimeValue && startTimeCell.textContent === startTimeValue) startTimeCell.classList.add('highlight');
+        if (endTimeValue && endTimeCell.textContent === endTimeValue) endTimeCell.classList.add('highlight');
+      }
+    });
+  }
+
+  if (searchIdName && searchDate && searchStartTime && searchEndTime) {
+    searchIdName.addEventListener('input', filterTable);
+    searchDate.addEventListener('input', filterTable);
+    searchStartTime.addEventListener('input', filterTable);
+    searchEndTime.addEventListener('input', filterTable);
+  }
+
+});
+
+
+  const modal = document.getElementById('deleteModal');
+  const confirmBtn = document.getElementById('confirmDelete');
+  const cancelBtn = document.getElementById('cancelDelete');
+
+  let activeForm = null;
+
+  document.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', function () {
+      const formId = this.dataset.formId;
+      activeForm = document.getElementById(formId);
+      modal.classList.add('active');
+      modal.setAttribute('aria-hidden', 'false');
+    });
+  });
+
+  confirmBtn.addEventListener('click', () => {
+    if (activeForm) {
+      activeForm.submit(); // ✅ THIS WILL SUBMIT
+    }
+  });
+
+  cancelBtn.addEventListener('click', () => {
+    modal.classList.remove('active');
+    modal.setAttribute('aria-hidden', 'true');
+    activeForm = null;
+  });
 </script>
 
 {% endblock %}

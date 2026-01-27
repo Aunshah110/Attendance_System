@@ -67,14 +67,6 @@
     align-items:center;
   }
 
-  h1,h2{
-    color: var(--yellow);
-    text-align:center;
-    font-weight:800;
-    margin-bottom:1rem;
-    text-shadow: 0 3px 6px rgba(0,0,0,0.35);
-  }
-
   form{
     width:100%;
     max-width:520px;
@@ -218,18 +210,33 @@
     white-space: nowrap;
   }
 
-  td[data-label="Action"]{
-    justify-content: center;
-    padding-top: 12px;
+ td[data-label="Action"]{
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
   }
 
   td[data-label="Action"]::before{
-    display: none;
+    display: none !important;
   }
 
+  td[data-label="Action"] form{
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+  }
+
+  td[data-label="Action"] button,
   td[data-label="Action"] .btn-dashboard{
+    float: none !important;
+    margin: 0 auto !important;
+    display: inline-flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    max-width: 180px;
     width: 100%;
-    max-width: 160px;
   }
 }
 </style>
@@ -271,7 +278,7 @@
         </div>
       </form>
 
-      <h2>Sections</h2>
+      <h1>Sections</h1>
       <table>
         <thead>
           <tr>

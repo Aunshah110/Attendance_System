@@ -234,18 +234,7 @@
     gap: 1.2rem;
     margin-bottom: 1.2rem;
   }
-
-.no-data-alert{
-  margin-top: 1.5rem;
-  padding: 14px 18px;
-  border-radius: 10px;
-  background: rgba(255, 210, 74, 0.18);
-  border: 1.5px solid var(--yellow);
-  color: var(--brown-dark);
-  font-weight: 600;
-  text-align: center;
-}
-
+  
   /* Responsive adjustments */
   @media (max-width: 1200px) {
     .form-grid {
@@ -422,7 +411,7 @@
 <div class="admin-wrapper">
   <div class="dashboard-card">
     <div class="dashboard-inner">
-      <h2 class="text-center mb-4" style="color: var(--cream);">Manage Timetable</h2>
+      <h1>Manage Timetable</h1>
 
       <!-- Add Timetable Entry Form -->
       <div class="mb-4">
@@ -614,10 +603,10 @@
           </div>
         </div>
       </div>
-      {% else %}
+      {% elif form_submitted %}
       <!-- ⚠️ NO DATA MESSAGE -->
         <div class="no-data-alert">
-            ⚠️ No records available for the selected Batch, Department and Semester.
+            ⚠️ No records available.
         </div>
       {% endif %}
     </div>

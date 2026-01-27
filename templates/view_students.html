@@ -253,6 +253,34 @@ tr:hover td{ background: rgba(255,210,74,0.25); }
   td::before{ content: attr(data-label); font-weight:bold; color: var(--brown-dark); }
   .btn-action{ width:100%; margin: 0.25rem 0; }
   .search-container { margin: 1rem 0; }
+   td[data-label="Action"]{
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  td[data-label="Action"]::before{
+    display: none !important;
+  }
+
+  td[data-label="Action"] form{
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+  }
+
+  td[data-label="Action"] button,
+  td[data-label="Action"] .btn-dashboard{
+    float: none !important;
+    margin: 0 auto !important;
+    display: inline-flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    max-width: 180px;
+    width: 100%;
+  }
 }
 
 /* Highlight search results */
@@ -275,7 +303,7 @@ tr:hover td{ background: rgba(255,210,74,0.25); }
   <div class="dashboard-card" role="region" aria-label="Teacher dashboard">
     <div class="dashboard-inner">
 
-      <h1 style="color: var(--yellow); text-align:center;">Manage Students</h1>
+      <h1>Manage Students</h1>
 
       <form method="POST" id="studentFilterForm">
         <div>
@@ -352,10 +380,10 @@ tr:hover td{ background: rgba(255,210,74,0.25); }
             {% endif %}
 
             {% if user_role == 'admin' %}
-              <td data-label="Edit">
+              <td data-label="Action">
                 <a href="{{ url_for('update_student', student_id=student[0]) }}" class="btn-dashboard btn-sm"><span>Edit</span></a>
               </td>
-              <td data-label="Delete">
+              <td data-label="Action">
                 <form method="POST"
                   action="{{ url_for('delete_student', student_id=student[0]) }}"
                   class="delete-form"
@@ -373,10 +401,9 @@ tr:hover td{ background: rgba(255,210,74,0.25); }
           {% endfor %}
         </tbody>
       </table>
-      {% else %}
-      <!-- ⚠️ NO DATA MESSAGE -->
+      {% elif form_submitted %}
         <div class="no-data-alert">
-            ⚠️ No records available for the selected Batch, Department and Semester.
+            ⚠️ No records available.
         </div>
       {% endif %}
 
